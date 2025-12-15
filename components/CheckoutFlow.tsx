@@ -43,8 +43,23 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
 
     // Construct Message
     const header = `*Novo Pedido - Patanegra App*\n------------------\n`;
-    const items = cart.map(item => `• ${item.quantity}x ${item.name} (R$ ${item.price})\n`).join('');
-    const totalMsg = `\n*Total: R$ ${total.toFixed(2)}*`;
+    
+    const items = cart.map(item => {
+      let itemString = `• ${item.quantity}x ${item.name} (R$ ${item.price})\n`;
+      
+      // Append extras if present
+      const extras = [];
+      if (item.rentTables) extras.push("  - Orçamento Mesas: Sim");
+      if (item.rentUmbrellas) extras.push("  - Orçamento Ombrelones: Sim");
+      if (item.cupsQuantity) extras.push(`  - Copos: ${item.cupsQuantity} un.`);
+      
+      if (extras.length > 0) {
+        itemString += extras.join('\n') + '\n';
+      }
+      return itemString;
+    }).join('');
+
+    const totalMsg = `\n*Total Aprox.: R$ ${total.toFixed(2)}*`;
     
     const clientInfo = `\n\n👤 *Dados do Cliente*\n------------------\nNome: ${name}\nNascimento: ${dob}\nEndereço: ${address}\n📍 Unidade: ${location}\n💰 Pagamento: ${paymentMethod}`;
     const footer = `\n\n------------------\nGostaria de confirmar o pedido.`;

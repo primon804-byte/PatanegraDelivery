@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart } from 'lucide-react';
+import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart, CalendarDays } from 'lucide-react';
 import { PRODUCTS, HERO_IMAGES } from './constants';
 import { Product, CartItem, ViewState, ProductCategory } from './types';
 import { Button } from './components/Button';
@@ -12,6 +12,7 @@ import { HeroSlider } from './components/HeroSlider';
 import { FloatingCart } from './components/FloatingCart';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutFlow } from './components/CheckoutFlow';
+import { ContactModal } from './components/ContactModal';
 
 // --- Loading Component ---
 const LoadingScreen = () => (
@@ -35,7 +36,8 @@ const LoadingScreen = () => (
 const HomeView: React.FC<{
   setView: (v: ViewState) => void;
   onOrderClick: () => void;
-}> = ({ setView, onOrderClick }) => (
+  onEventClick: () => void;
+}> = ({ setView, onOrderClick, onEventClick }) => (
   <div className="animate-fade-in pb-32 relative bg-zinc-950">
       
       {/* Logo Overlay - Fixed Image URL */}
@@ -72,6 +74,7 @@ const HomeView: React.FC<{
                <p className="text-sm text-zinc-400 mt-1">Seu chope chega na temperatura ideal e pronto para servir.</p>
              </div>
           </div>
+          
           <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
              <div className="p-3 bg-zinc-800 rounded-lg text-amber-500">
                <ShieldCheck size={24} />
@@ -81,6 +84,22 @@ const HomeView: React.FC<{
                <p className="text-sm text-zinc-400 mt-1">Barris selecionados e equipamentos profissionais.</p>
              </div>
           </div>
+
+          <button 
+            onClick={onEventClick}
+            className="flex items-start text-left gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900 transition-all active:scale-[0.98]"
+          >
+             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500">
+               <CalendarDays size={24} />
+             </div>
+             <div>
+               <h3 className="font-bold text-white flex items-center gap-2">
+                 Contate para Eventos
+                 <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold uppercase">Novo</span>
+               </h3>
+               <p className="text-sm text-zinc-400 mt-1">Fale diretamente com nossa equipe via WhatsApp.</p>
+             </div>
+          </button>
         </div>
       </div>
     </div>
@@ -88,7 +107,7 @@ const HomeView: React.FC<{
 
 const MenuView: React.FC<{
   products: Product[];
-  addToCart: (p: Product) => void;
+  addToCart: (p: Product, options?: Partial<CartItem>) => void;
   setSelectedProduct: (p: Product | null) => void;
   recommendedVolume: number | null;
   activeCategory: ProductCategory;
@@ -139,7 +158,15 @@ const MenuView: React.FC<{
               <ProductCard 
                 key={product.id} 
                 product={product} 
-                onAdd={addToCart}
+                onAdd={(p) => {
+                  // LÓGICA ALTERADA: Se for Barril (30 ou 50), abre o modal para opcionais.
+                  // Se for Growler, adiciona direto para manter a agilidade.
+                  if (p.category === ProductCategory.KEG30 || p.category === ProductCategory.KEG50) {
+                    setSelectedProduct(p);
+                  } else {
+                    addToCart(p);
+                  }
+                }}
                 onClick={setSelectedProduct}
                 featured={false}
               />
@@ -178,29 +205,42 @@ const CartView: React.FC<{
         <>
           <div className="flex-1 space-y-4 overflow-y-auto">
             {cart.map(item => (
-              <div key={item.id} className="flex items-center gap-4 bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
-                <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-white">{item.name}</h4>
-                  <div className="text-amber-500 font-semibold">R$ {item.price.toFixed(2)}</div>
+              <div key={item.id} className="flex flex-col gap-2 bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
+                <div className="flex items-center gap-4">
+                  <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover" />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-white">{item.name}</h4>
+                    <div className="text-amber-500 font-semibold">R$ {item.price.toFixed(2)}</div>
+                  </div>
+                  
+                  <div className="flex flex-col items-end gap-2">
+                     <button onClick={() => removeFromCart(item.id)} className="text-zinc-500 hover:text-red-500">
+                       <Trash2 size={16} />
+                     </button>
+                     <div className="flex items-center bg-zinc-800 rounded-lg">
+                        <button 
+                          onClick={() => updateQuantity(item.id, -1)}
+                          className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
+                        >-</button>
+                        <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                        <button 
+                          onClick={() => updateQuantity(item.id, 1)}
+                          className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
+                        >+</button>
+                     </div>
+                  </div>
                 </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                   <button onClick={() => removeFromCart(item.id)} className="text-zinc-500 hover:text-red-500">
-                     <Trash2 size={16} />
-                   </button>
-                   <div className="flex items-center bg-zinc-800 rounded-lg">
-                      <button 
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
-                      >-</button>
-                      <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
-                      >+</button>
+                {/* Extra info display */}
+                {(item.rentTables || item.rentUmbrellas || item.cupsQuantity) && (
+                   <div className="mt-2 pt-2 border-t border-zinc-800 text-xs text-zinc-400">
+                     <p className="font-bold text-amber-500 mb-1">Adicionais Solicitados:</p>
+                     <ul className="list-disc pl-4 space-y-0.5">
+                       {item.rentTables && <li>Orçamento de Mesas</li>}
+                       {item.rentUmbrellas && <li>Orçamento de Ombrelones</li>}
+                       {item.cupsQuantity && <li>{item.cupsQuantity} Copos descartáveis</li>}
+                     </ul>
                    </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
@@ -234,6 +274,7 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
   
   const products = PRODUCTS;
 
@@ -278,15 +319,42 @@ const App: React.FC = () => {
     loadAssets();
   }, []);
 
-  const addToCart = (product: Product) => {
+  // Update addToCart to handle options
+  const addToCart = (product: Product, options?: Partial<CartItem>) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
+      // If adding a product with special options (kegs), we might want to treat it as unique or just update the latest one.
+      // For simplicity in this flow, if options are provided, we find if there is an exact match or just update the ID match.
+      // Given the requirement is simple, let's just update the existing cart item or add new.
+      
+      const existingIndex = prev.findIndex(item => item.id === product.id);
+      
+      if (existingIndex >= 0) {
+        // Product exists. 
+        // If options are provided, overwrite the options of the existing item (assuming user wants to update their selection)
+        // Or if simple add (+), just increment quantity.
+        const existingItem = prev[existingIndex];
+        
+        const updatedItem = {
+           ...existingItem,
+           quantity: existingItem.quantity + 1,
+           // Merge options if they are provided, otherwise keep existing
+           rentTables: options?.rentTables ?? existingItem.rentTables,
+           rentUmbrellas: options?.rentUmbrellas ?? existingItem.rentUmbrellas,
+           cupsQuantity: options?.cupsQuantity ?? existingItem.cupsQuantity
+        };
+        
+        const newCart = [...prev];
+        newCart[existingIndex] = updatedItem;
+        return newCart;
       }
-      return [...prev, { ...product, quantity: 1 }];
+      
+      return [...prev, { 
+        ...product, 
+        quantity: 1,
+        rentTables: options?.rentTables,
+        rentUmbrellas: options?.rentUmbrellas,
+        cupsQuantity: options?.cupsQuantity
+      }];
     });
   };
 
@@ -340,6 +408,7 @@ const App: React.FC = () => {
           <HomeView 
             setView={setView} 
             onOrderClick={handleOrderClick}
+            onEventClick={() => setIsContactOpen(true)}
           />
         )}
 
@@ -393,6 +462,11 @@ const App: React.FC = () => {
           onClose={() => setIsCheckoutOpen(false)}
           cart={cart}
           total={cartTotal}
+        />
+
+        <ContactModal 
+          isOpen={isContactOpen}
+          onClose={() => setIsContactOpen(false)}
         />
 
         {cart.length > 0 && view !== 'cart' && !isCartOpen && (

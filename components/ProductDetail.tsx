@@ -1,17 +1,34 @@
-import React from 'react';
-import { Product } from '../types';
+
+import React, { useState, useEffect } from 'react';
+import { Product, ProductCategory, CartItem } from '../types';
 import { Button } from './Button';
-import { X, Droplets, Hop, Utensils, ShoppingBag } from 'lucide-react';
+import { X, Droplets, Hop, Utensils, ShoppingBag, Umbrella, Beer, LayoutGrid, Check } from 'lucide-react';
 
 interface ProductDetailProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (product: Product) => void;
+  onAdd: (product: Product, options?: Partial<CartItem>) => void;
 }
 
 export const ProductDetail: React.FC<ProductDetailProps> = ({ product, isOpen, onClose, onAdd }) => {
+  const [rentTables, setRentTables] = useState(false);
+  const [rentUmbrellas, setRentUmbrellas] = useState(false);
+  const [cupsQuantity, setCupsQuantity] = useState<number | null>(null);
+
+  // Reset state when product changes
+  useEffect(() => {
+    if (isOpen) {
+      setRentTables(false);
+      setRentUmbrellas(false);
+      setCupsQuantity(null);
+    }
+  }, [product, isOpen]);
+
   if (!isOpen) return null;
+
+  // Check if product is a Keg (allows extras)
+  const isKeg = product.category === ProductCategory.KEG30 || product.category === ProductCategory.KEG50;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
@@ -90,6 +107,73 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, isOpen, o
               {product.description}
             </p>
           </div>
+          
+          {/* EXTRAS - Only for Kegs */}
+          {isKeg && (
+            <div className="space-y-4 pt-2 border-t border-zinc-900">
+              <h3 className="text-amber-500 font-bold uppercase text-xs tracking-wider mb-2">Solicitar Orçamento de Adicionais</h3>
+              
+              {/* Tables Toggle */}
+              <button 
+                onClick={() => setRentTables(!rentTables)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${rentTables ? 'bg-amber-500/10 border-amber-500' : 'bg-zinc-900 border-zinc-800'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <LayoutGrid size={20} className={rentTables ? 'text-amber-500' : 'text-zinc-500'} />
+                  <div className="text-left">
+                     <span className={`block font-bold text-sm ${rentTables ? 'text-white' : 'text-zinc-400'}`}>Mesas</span>
+                     <span className="text-xs text-zinc-500">Incluir no orçamento</span>
+                  </div>
+                </div>
+                <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${rentTables ? 'bg-amber-500 border-amber-500 text-black' : 'border-zinc-700'}`}>
+                   {rentTables && <Check size={14} />}
+                </div>
+              </button>
+
+              {/* Umbrellas Toggle */}
+              <button 
+                onClick={() => setRentUmbrellas(!rentUmbrellas)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${rentUmbrellas ? 'bg-amber-500/10 border-amber-500' : 'bg-zinc-900 border-zinc-800'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <Umbrella size={20} className={rentUmbrellas ? 'text-amber-500' : 'text-zinc-500'} />
+                  <div className="text-left">
+                     <span className={`block font-bold text-sm ${rentUmbrellas ? 'text-white' : 'text-zinc-400'}`}>Ombrelones</span>
+                     <span className="text-xs text-zinc-500">Incluir no orçamento</span>
+                  </div>
+                </div>
+                <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${rentUmbrellas ? 'bg-amber-500 border-amber-500 text-black' : 'border-zinc-700'}`}>
+                   {rentUmbrellas && <Check size={14} />}
+                </div>
+              </button>
+              
+              {/* Cups Selector */}
+              <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                <div className="flex items-center gap-3 mb-2">
+                   <Beer size={20} className="text-zinc-500" />
+                   <span className="font-bold text-sm text-zinc-400">Copos Descartáveis</span>
+                </div>
+                <select 
+                  className="w-full bg-zinc-950 text-white border border-zinc-700 rounded-lg p-2 text-sm focus:border-amber-500 focus:outline-none"
+                  value={cupsQuantity || ''}
+                  onChange={(e) => setCupsQuantity(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Não preciso de copos</option>
+                  <option value="100">100 Copos</option>
+                  <option value="200">200 Copos</option>
+                  <option value="300">300 Copos</option>
+                  <option value="400">400 Copos</option>
+                  <option value="500">500 Copos</option>
+                  <option value="600">600 Copos</option>
+                  <option value="700">700 Copos</option>
+                  <option value="800">800 Copos</option>
+                  <option value="900">900 Copos</option>
+                  <option value="1000">1000 Copos</option>
+                </select>
+              </div>
+
+            </div>
+          )}
 
           {/* Pairing */}
           {product.pairing && (
@@ -118,7 +202,11 @@ export const ProductDetail: React.FC<ProductDetailProps> = ({ product, isOpen, o
             fullWidth 
             icon={<ShoppingBag size={20} />} 
             onClick={() => {
-              onAdd(product);
+              onAdd(product, {
+                rentTables,
+                rentUmbrellas,
+                cupsQuantity
+              });
               onClose();
             }}
           >

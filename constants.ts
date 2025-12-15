@@ -5,14 +5,14 @@ import { Product, ProductCategory, BeerType } from './types';
 // CONFIGURAÇÃO DOS WHATSAPPS (POR UNIDADE)
 // ==============================================================================
 export const WHATSAPP_NUMBERS = {
-  // Matriz
-  MARECHAL: "5545999111741", 
-  // Filial
-  FOZ: "5545999111741" 
+  // Matriz - Marechal Cândido Rondon
+  MARECHAL: "5545988175171", 
+  // Filial - Foz do Iguaçu
+  FOZ: "5545999901000" 
 };
 
 // Mantido para compatibilidade se necessário
-export const WHATSAPP_NUMBER = "5545999111741"; 
+export const WHATSAPP_NUMBER = "5545988175171"; 
 
 // ==============================================================================
 // CONFIGURAÇÃO DO FLYER / DESTAQUE

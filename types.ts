@@ -30,6 +30,10 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  // Extra options for Event Kegs
+  rentTables?: boolean;
+  rentUmbrellas?: boolean;
+  cupsQuantity?: number | null; // 100 - 1000
 }
 
 export interface CalculatorResult {
