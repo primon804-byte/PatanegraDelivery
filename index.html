@@ -10,9 +10,7 @@
     <title>Patanegra Premium Draft</title>
     
     <!-- CRITICAL RESOURCE PRELOADING -->
-    <!-- Logo -->
     <link rel="preload" as="image" href="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" fetchpriority="high">
-    <!-- Hero Background -->
     <link rel="preload" as="image" href="https://i.ibb.co/jZWpr3kK/IMG-9249-1.jpg" fetchpriority="high">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -34,9 +32,8 @@
               }
             },
             animation: {
-              'fade-in': 'fadeIn 0.3s ease-out forwards',
-              'slide-up': 'slideUp 0.4s ease-out forwards',
-              'slide-left': 'slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'slide-up': 'slideUp 0.5s ease-out forwards',
             },
             keyframes: {
               fadeIn: {
@@ -46,10 +43,6 @@
               slideUp: {
                 '0%': { transform: 'translateY(20px)', opacity: '0' },
                 '100%': { transform: 'translateY(0)', opacity: '1' },
-              },
-              slideLeft: {
-                '0%': { transform: 'translateX(100%)' },
-                '100%': { transform: 'translateX(0)' },
               }
             }
           },
@@ -64,138 +57,77 @@
         margin: 0;
       }
       
-      /* Shell Styles - Critical CSS for Instant Paint */
-      .app-shell {
-        position: relative;
+      /* Splash Screen Styles - Critical CSS */
+      .splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
         background-color: #09090b;
-        min-height: 100vh;
-        overflow: hidden;
-      }
-      .shell-hero {
-        position: relative;
-        height: 70vh;
-        width: 100%;
-        overflow: hidden;
-      }
-      .shell-hero-img {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-      .shell-gradient {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.2), #09090b);
-      }
-      .shell-logo-container {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 40;
-        display: flex;
-        justify-content: center;
-        padding-top: 2rem;
-      }
-      .shell-logo {
-        height: 8rem;
-        width: auto;
-        max-width: 80%;
-        object-fit: contain;
-        filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.5));
-      }
-      .shell-content {
-        position: absolute;
-        inset: 0;
         display: flex;
         flex-direction: column;
-        justify-content: flex-end;
-        padding: 1.5rem;
-        padding-bottom: 3rem;
-        z-index: 10;
-      }
-      .shell-badge {
-        display: inline-flex;
         align-items: center;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        background-color: rgba(245, 158, 11, 0.2);
-        border: 1px solid rgba(245, 158, 11, 0.5);
-        margin-bottom: 1rem;
-        align-self: flex-start;
+        justify-content: center;
       }
-      .shell-badge-text {
-        color: #f59e0b;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-family: sans-serif;
-      }
-      .shell-btn-group {
-        display: flex;
-        gap: 1rem;
-      }
-      .shell-btn-primary {
-        flex: 1;
-        background-color: #f59e0b;
-        color: black;
-        height: 3rem;
-        border-radius: 0.75rem;
-        border: none;
-      }
-      .shell-btn-secondary {
-        width: 4rem;
-        background-color: #27272a;
-        height: 3rem;
-        border-radius: 0.75rem;
-        border: none;
-      }
-      .shell-card {
-        background-color: #09090b;
-        margin-top: -2.5rem;
+      
+      .splash-logo-container {
         position: relative;
-        z-index: 20;
-        border-top-left-radius: 2.5rem;
-        border-top: 1px solid #18181b;
-        padding: 2.5rem 1.5rem;
+        width: 8rem;
+        height: 8rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .shell-title {
-        height: 2rem;
-        width: 60%;
-        background-color: #27272a;
-        margin: 0 auto 1rem auto;
-        border-radius: 0.5rem;
+      
+      .splash-pulse {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(245, 158, 11, 0.15);
+        border-radius: 9999px;
+        animation: splashPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
       }
-      .shell-text {
-        height: 1rem;
-        width: 80%;
-        background-color: #27272a;
-        margin: 0 auto;
-        border-radius: 0.25rem;
-        opacity: 0.5;
+      
+      .splash-circle {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        height: 100%;
+        background-color: #18181b;
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #27272a;
+        box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.1);
+      }
+      
+      .splash-img {
+        width: 5rem;
+        height: 5rem;
+        object-fit: contain;
+        animation: splashPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      .splash-text {
+        color: #f59e0b;
+        font-family: 'Playfair Display', serif;
+        font-size: 1rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        opacity: 0.8;
+        animation: splashTextPulse 1.5s ease-in-out infinite;
       }
 
-      /* Visible Styled Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+      @keyframes splashPing {
+        75%, 100% { transform: scale(1.5); opacity: 0; }
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
+      @keyframes splashPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(0.95); }
       }
-      ::-webkit-scrollbar-thumb {
-        background: #3f3f46;
-        border-radius: 99px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #f59e0b;
-      }
-      * {
-        scrollbar-width: thin;
-        scrollbar-color: #3f3f46 transparent;
+      @keyframes splashTextPulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
       }
     </style>
   <script type="importmap">
@@ -211,44 +143,20 @@
 </head>
   <body>
     <div id="root">
-      <!-- APP SHELL / SKELETON SCREEN -->
-      <!-- This renders IMMEDIATELY before React loads, giving the illusion of instant loading -->
-      <div class="app-shell">
-        
-        <!-- Logo -->
-        <div class="shell-logo-container">
-           <img 
-             src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
-             class="shell-logo" 
-             alt="Patanegra"
-           />
-        </div>
-
-        <!-- Hero -->
-        <div class="shell-hero">
-          <img 
-            src="https://i.ibb.co/jZWpr3kK/IMG-9249-1.jpg" 
-            class="shell-hero-img" 
-            alt=""
-          />
-          <div class="shell-gradient"></div>
-          
-          <div class="shell-content">
-            <div class="shell-badge">
-              <span class="shell-badge-text">CHOPE PREMIUM</span>
+      <!-- STATIC LOADING SCREEN -->
+      <!-- This ensures immediate feedback while JS and Images load -->
+      <div class="splash-screen">
+         <div class="splash-logo-container">
+            <div class="splash-pulse"></div>
+            <div class="splash-circle">
+               <img 
+                 src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
+                 class="splash-img" 
+                 alt="Patanegra"
+               />
             </div>
-            <div class="shell-btn-group">
-              <button class="shell-btn-primary"></button>
-              <button class="shell-btn-secondary"></button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Content Placeholder -->
-        <div class="shell-card">
-          <div class="shell-title"></div>
-          <div class="shell-text"></div>
-        </div>
+         </div>
+         <div class="splash-text">Carregando</div>
       </div>
     </div>
     <!-- Entry Point Script -->

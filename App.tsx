@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart } from 'lucide-react';
-import { PRODUCTS } from './constants';
+import { PRODUCTS, HERO_IMAGES } from './constants';
 import { Product, CartItem, ViewState, ProductCategory } from './types';
 import { Button } from './components/Button';
 import { ProductCard } from './components/ProductCard';
@@ -12,6 +12,23 @@ import { HeroSlider } from './components/HeroSlider';
 import { FloatingCart } from './components/FloatingCart';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutFlow } from './components/CheckoutFlow';
+
+// --- Loading Component ---
+const LoadingScreen = () => (
+  <div className="fixed inset-0 z-[200] bg-zinc-950 flex flex-col items-center justify-center animate-fade-in">
+    <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
+       <div className="absolute inset-0 bg-amber-500/15 rounded-full animate-ping" />
+       <div className="relative z-10 w-full h-full bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800 shadow-2xl">
+          <img 
+            src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
+            alt="Loading"
+            className="w-20 h-20 object-contain animate-pulse" 
+          />
+       </div>
+    </div>
+    <div className="text-amber-500 font-serif text-sm tracking-[0.2em] uppercase animate-pulse">Carregando</div>
+  </div>
+);
 
 // --- Extracted Components ---
 
@@ -28,9 +45,6 @@ const HomeView: React.FC<{
               src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
               alt="Patanegra" 
               className="h-full w-full object-contain filter drop-shadow-lg"
-              loading="eager"
-              // @ts-ignore
-              fetchPriority="high"
             />
          </div>
       </div>
@@ -215,38 +229,54 @@ const CartView: React.FC<{
 // --- Main App Component ---
 
 const App: React.FC = () => {
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewState>('home');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   
-  // Products are now completely static from constants.ts
   const products = PRODUCTS;
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recommendedVolume, setRecommendedVolume] = useState<number | null>(null);
 
-  // Product Detail State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // PRELOADER STRATEGY:
-  // Preload all product images in the background once the app mounts.
-  // This ensures that when the user clicks "Pedir Agora", the images are already in the browser cache.
+  // CRITICAL ASSET PRELOADING
   useEffect(() => {
-    const preloadImages = () => {
-      products.forEach((product) => {
-        const img = new Image();
-        img.src = product.image;
-      });
-    };
-    
-    // Small delay to prioritize critical rendering of Home first
-    const timer = setTimeout(() => {
-        preloadImages();
-    }, 100);
+    const loadAssets = async () => {
+      // List of critical images to wait for (Logo, Hero, Top products)
+      const criticalImages = [
+        'https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand',
+        ...HERO_IMAGES,
+        // Preload first 2 products to avoid pop-in on menu
+        ...products.slice(0, 2).map(p => p.image) 
+      ];
 
-    return () => clearTimeout(timer);
-  }, [products]);
+      const promises = criticalImages.map(src => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.src = src;
+          img.onload = resolve;
+          img.onerror = resolve; // Continue even if error
+        });
+      });
+
+      // Wait for images to load OR 4 seconds max timeout
+      const timeout = new Promise(resolve => setTimeout(resolve, 4000));
+      await Promise.race([Promise.all(promises), timeout]);
+
+      // Trigger background load for rest of products
+      products.slice(2).forEach(p => {
+        const img = new Image();
+        img.src = p.image;
+      });
+
+      setLoading(false);
+    };
+
+    loadAssets();
+  }, []);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -275,13 +305,11 @@ const App: React.FC = () => {
   };
 
   const handleOrderClick = () => {
-    // Just switch to menu, default category stays what it was or Growler
     setView('menu');
   };
 
   const handleCheckoutClick = () => {
-    // Open the new checkout flow (Location + Form)
-    setIsCartOpen(false); // Close drawer if open
+    setIsCartOpen(false); 
     setIsCheckoutOpen(true);
   };
 
@@ -290,20 +318,22 @@ const App: React.FC = () => {
 
   const handleCalculatorResult = (liters: number) => {
     setRecommendedVolume(liters);
-    
-    // Logic: <= 30 Liters goes to KEG30, > 30 goes to KEG50
     if (liters <= 30) {
       setActiveCategory(ProductCategory.KEG30);
     } else {
       setActiveCategory(ProductCategory.KEG50);
     }
-
     setView('menu');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // RENDER LOADING SCREEN IF ASSETS ARE NOT READY
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-500 selection:text-black animate-fade-in">
       <main className="max-w-md mx-auto min-h-screen bg-zinc-950 shadow-2xl overflow-hidden relative">
         
         {view === 'home' && (
@@ -339,7 +369,6 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* Product Detail Modal */}
         {selectedProduct && (
           <ProductDetail 
             product={selectedProduct} 
@@ -349,7 +378,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* Side Cart Drawer */}
         <CartDrawer 
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
@@ -360,7 +388,6 @@ const App: React.FC = () => {
           onCheckout={handleCheckoutClick}
         />
 
-        {/* Checkout Flow (Location + Data) */}
         <CheckoutFlow 
           isOpen={isCheckoutOpen}
           onClose={() => setIsCheckoutOpen(false)}
@@ -368,7 +395,6 @@ const App: React.FC = () => {
           total={cartTotal}
         />
 
-        {/* Floating Cart Indicator - Opens Drawer instead of switching view */}
         {cart.length > 0 && view !== 'cart' && !isCartOpen && (
           <FloatingCart 
             count={cartCount} 
