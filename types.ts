@@ -1,3 +1,4 @@
+
 export enum BeerType {
   PILSEN = 'Pilsen',
   IPA = 'IPA',
@@ -8,9 +9,8 @@ export enum BeerType {
 
 export enum ProductCategory {
   GROWLER = 'Growlers',
-  KEG = 'Barris',
-  COMBO = 'Combos',
-  STRUCTURE = 'Estrutura'
+  KEG30 = 'Barris 30L',
+  KEG50 = 'Barris 50L'
 }
 
 export interface Product {

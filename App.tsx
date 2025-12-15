@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart } from 'lucide-react';
 import { PRODUCTS } from './constants';
 import { Product, CartItem, ViewState, ProductCategory } from './types';
@@ -27,7 +27,10 @@ const HomeView: React.FC<{
             <img 
               src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
               alt="Patanegra" 
-              className="h-full w-full object-contain filter drop-shadow-lg" 
+              className="h-full w-full object-contain filter drop-shadow-lg"
+              loading="eager"
+              // @ts-ignore
+              fetchPriority="high"
             />
          </div>
       </div>
@@ -74,8 +77,10 @@ const MenuView: React.FC<{
   addToCart: (p: Product) => void;
   setSelectedProduct: (p: Product | null) => void;
   recommendedVolume: number | null;
-}> = ({ products, addToCart, setSelectedProduct, recommendedVolume }) => {
-  const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
+  activeCategory: ProductCategory;
+  setActiveCategory: (c: ProductCategory) => void;
+}> = ({ products, addToCart, setSelectedProduct, recommendedVolume, activeCategory, setActiveCategory }) => {
+  // State lifted to App component
   const filteredProducts = products.filter(p => p.category === activeCategory);
 
   return (
@@ -122,7 +127,7 @@ const MenuView: React.FC<{
                 product={product} 
                 onAdd={addToCart}
                 onClick={setSelectedProduct}
-                featured={product.category === ProductCategory.COMBO && product.isPopular}
+                featured={false}
               />
             ))
           ) : (
@@ -211,6 +216,7 @@ const CartView: React.FC<{
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('home');
+  const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   
@@ -222,6 +228,25 @@ const App: React.FC = () => {
 
   // Product Detail State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // PRELOADER STRATEGY:
+  // Preload all product images in the background once the app mounts.
+  // This ensures that when the user clicks "Pedir Agora", the images are already in the browser cache.
+  useEffect(() => {
+    const preloadImages = () => {
+      products.forEach((product) => {
+        const img = new Image();
+        img.src = product.image;
+      });
+    };
+    
+    // Small delay to prioritize critical rendering of Home first
+    const timer = setTimeout(() => {
+        preloadImages();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [products]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -250,7 +275,7 @@ const App: React.FC = () => {
   };
 
   const handleOrderClick = () => {
-    // Just switch to menu
+    // Just switch to menu, default category stays what it was or Growler
     setView('menu');
   };
 
@@ -265,6 +290,14 @@ const App: React.FC = () => {
 
   const handleCalculatorResult = (liters: number) => {
     setRecommendedVolume(liters);
+    
+    // Logic: <= 30 Liters goes to KEG30, > 30 goes to KEG50
+    if (liters <= 30) {
+      setActiveCategory(ProductCategory.KEG30);
+    } else {
+      setActiveCategory(ProductCategory.KEG50);
+    }
+
     setView('menu');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -286,6 +319,8 @@ const App: React.FC = () => {
             addToCart={addToCart} 
             setSelectedProduct={setSelectedProduct}
             recommendedVolume={recommendedVolume}
+            activeCategory={activeCategory}
+            setActiveCategory={setActiveCategory}
           />
         )}
 

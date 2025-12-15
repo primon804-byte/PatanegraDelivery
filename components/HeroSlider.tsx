@@ -8,7 +8,7 @@ interface HeroSliderProps {
   onCalcClick: () => void;
 }
 
-const STATIC_IMAGE = 'https://i.imgur.com/O4A9IeK.jpeg';
+const STATIC_IMAGE = 'https://i.ibb.co/jZWpr3kK/IMG-9249-1.jpg';
 
 export const HeroSlider: React.FC<HeroSliderProps> = ({ onOrderClick, onCalcClick }) => {
   return (
@@ -19,6 +19,9 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({ onOrderClick, onCalcClic
             src={STATIC_IMAGE}
             alt="Patanegra Destaque"
             className="w-full h-full object-cover"
+            loading="eager"
+            // @ts-ignore
+            fetchPriority="high"
           />
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-zinc-950" />
