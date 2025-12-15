@@ -395,6 +395,15 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Logic to handle Navigation changes
+  const handleViewChange = (newView: ViewState) => {
+    if (newView === 'contact') {
+      setIsContactOpen(true);
+    } else {
+      setView(newView);
+    }
+  };
+
   // RENDER LOADING SCREEN IF ASSETS ARE NOT READY
   if (loading) {
     return <LoadingScreen />;
@@ -478,7 +487,7 @@ const App: React.FC = () => {
         )}
       </main>
       
-      <Navigation currentView={view} onChangeView={(v) => setView(v)} cartCount={cartCount} />
+      <Navigation currentView={view} onChangeView={handleViewChange} cartCount={cartCount} />
     </div>
   );
 };

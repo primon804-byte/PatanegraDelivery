@@ -41,4 +41,4 @@ export interface CalculatorResult {
   recommendedKegs: string[]; // IDs of products
 }
 
-export type ViewState = 'home' | 'menu' | 'calculator' | 'cart';
+export type ViewState = 'home' | 'menu' | 'calculator' | 'cart' | 'contact';

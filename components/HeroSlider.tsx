@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Star } from 'lucide-react';
+import { Star, Calculator } from 'lucide-react';
 import { Button } from './Button';
 
 interface HeroSliderProps {
@@ -35,13 +35,19 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({ onOrderClick, onCalcClic
             <span className="text-amber-500 text-xs font-bold tracking-wide uppercase">Chope Premium</span>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-3 w-full">
             <Button fullWidth onClick={onOrderClick}>
               Pedir Agora
             </Button>
-            <Button variant="secondary" onClick={onCalcClick} className="w-16 flex-shrink-0">
-               <span className="sr-only">Calculadora</span>
-               🧮
+            
+            <Button 
+              fullWidth 
+              variant="outline" 
+              onClick={onCalcClick}
+              className="bg-zinc-950/40 backdrop-blur-md border-zinc-700 hover:bg-zinc-900 hover:border-amber-500"
+              icon={<Calculator size={18} />}
+            >
+               Calculadora de Chopp
             </Button>
           </div>
         </div>

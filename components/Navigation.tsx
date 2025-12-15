@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Home, Beer, Calculator, ShoppingCart } from 'lucide-react';
+import { Home, Beer, Calculator, ShoppingCart, MessageCircle } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface NavigationProps {
@@ -14,6 +15,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onChangeVie
     { id: 'menu', icon: Beer, label: 'Produtos' },
     { id: 'calculator', icon: Calculator, label: 'Calc' },
     { id: 'cart', icon: ShoppingCart, label: 'Pedido', badge: cartCount > 0 ? cartCount : null },
+    { id: 'contact', icon: MessageCircle, label: 'Contato' },
   ];
 
   return (
@@ -27,12 +29,12 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onChangeVie
             <button
               key={item.id}
               onClick={() => onChangeView(item.id as ViewState)}
-              className={`flex flex-col items-center justify-center w-16 space-y-1 transition-all ${
+              className={`flex flex-col items-center justify-center w-14 space-y-1 transition-all ${
                 isActive ? 'text-amber-500' : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
               <div className="relative">
-                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
                 {item.badge && (
                   <span className="absolute -top-2 -right-2 bg-amber-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full animate-bounce">
                     {item.badge}
