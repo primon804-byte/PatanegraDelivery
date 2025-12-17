@@ -1,29 +1,34 @@
 
 import React, { useState } from 'react';
-import { MapPin, X, ChevronRight, User, Calendar, Map, CheckCircle2, ArrowRight, QrCode, CreditCard, Banknote, RefreshCw } from 'lucide-react';
+import { MapPin, X, ChevronRight, User, Calendar, Map, CheckCircle2, ArrowRight, QrCode, CreditCard, Banknote, RefreshCw, Loader2, PartyPopper } from 'lucide-react';
 import { Button } from './Button';
 import { CartItem } from '../types';
 import { WHATSAPP_NUMBERS } from '../constants';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CheckoutFlowProps {
   isOpen: boolean;
   onClose: () => void;
   cart: CartItem[];
   total: number;
+  onOrderComplete?: () => void;
 }
 
 type LocationType = 'Marechal Cândido Rondon' | 'Foz do Iguaçu';
 type PaymentMethod = 'PIX' | 'Cartão' | 'Dinheiro';
 
-export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, cart, total }) => {
-  const [step, setStep] = useState<1 | 2>(1);
+export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, cart, total, onOrderComplete }) => {
+  const { user } = useAuth();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [location, setLocation] = useState<LocationType | null>(null);
   
   // Form State
-  const [name, setName] = useState('');
+  const [name, setName] = useState(user?.full_name || '');
   const [dob, setDob] = useState('');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(user?.address || '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -32,9 +37,66 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
     setStep(2);
   };
 
-  const handleFinalSubmit = (e: React.FormEvent) => {
+  const saveOrderToSupabase = async () => {
+    if (!user) return null;
+
+    try {
+      // 1. Create Order with Customer Info
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          customer_name: name,
+          customer_phone: user.phone || 'N/A',
+          total: total,
+          status: 'Em Andamento',
+          payment_method: paymentMethod,
+          delivery_address: address,
+          branch_location: location,
+          whatsapp_sent: true
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 2. Create Order Items with Category (Class)
+      const itemsToInsert = cart.map(item => ({
+        order_id: orderData.id,
+        product_id: item.id,
+        product_name: item.name,
+        category: item.category, // Saving the class/category
+        quantity: item.quantity,
+        price: item.price,
+        extras: {
+          rentTables: item.rentTables,
+          rentUmbrellas: item.rentUmbrellas,
+          cupsQuantity: item.cupsQuantity
+        }
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(itemsToInsert);
+
+      if (itemsError) throw itemsError;
+
+      return orderData.id;
+
+    } catch (error) {
+      console.error('Erro ao salvar pedido:', error);
+      return null;
+    }
+  };
+
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!location || !name || !dob || !address || !paymentMethod) return;
+    
+    setIsSubmitting(true);
+
+    // Save to DB
+    await saveOrderToSupabase();
 
     // Determine WhatsApp Number based on Location
     const phoneNumber = location === 'Marechal Cândido Rondon' 
@@ -47,7 +109,6 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
     const items = cart.map(item => {
       let itemString = `• ${item.quantity}x ${item.name} (R$ ${item.price})\n`;
       
-      // Append extras if present
       const extras = [];
       if (item.rentTables) extras.push("  - Orçamento Mesas: Sim");
       if (item.rentUmbrellas) extras.push("  - Orçamento Ombrelones: Sim");
@@ -66,9 +127,18 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
 
     const message = encodeURIComponent(header + items + totalMsg + clientInfo + footer);
     
+    setIsSubmitting(false);
+    
+    // Clear cart via parent prop
+    if (onOrderComplete) {
+        onOrderComplete();
+    }
+
     // Open WhatsApp
     window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
-    onClose();
+    
+    // Move to Step 3 (Success)
+    setStep(3);
   };
 
   return (
@@ -76,7 +146,7 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/90 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
+        onClick={() => step === 3 ? onClose() : onClose()}
       />
 
       {/* Content Container */}
@@ -85,24 +155,28 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
         {/* Glow Effect */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-2">
-          <h2 className="text-xl font-serif text-white">
-            {step === 1 ? 'Onde você está?' : 'Finalizar Pedido'}
-          </h2>
-          <button 
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
+        {/* Header (Hidden on Success step for cleaner look) */}
+        {step !== 3 && (
+            <div className="flex items-center justify-between p-6 pb-2">
+            <h2 className="text-xl font-serif text-white">
+                {step === 1 ? 'Onde você está?' : 'Finalizar Pedido'}
+            </h2>
+            <button 
+                onClick={onClose}
+                className="text-zinc-500 hover:text-white transition-colors"
+            >
+                <X size={20} />
+            </button>
+            </div>
+        )}
 
-        {/* Progress Bar */}
-        <div className="px-6 flex gap-2 mb-6">
-          <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-amber-500' : 'bg-zinc-800'}`} />
-          <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-amber-500' : 'bg-zinc-800'}`} />
-        </div>
+        {/* Progress Bar (Hidden on Success) */}
+        {step !== 3 && (
+            <div className="px-6 flex gap-2 mb-6">
+            <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-amber-500' : 'bg-zinc-800'}`} />
+            <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-amber-500' : 'bg-zinc-800'}`} />
+            </div>
+        )}
 
         {/* STEP 1: Location Selection */}
         {step === 1 && (
@@ -167,6 +241,12 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
                     Trocar
                 </button>
             </div>
+
+            {!user && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-200 text-center">
+                    Dica: Faça login para salvar seus pedidos e não precisar preencher seus dados toda vez.
+                </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Seu Nome</label>
@@ -246,12 +326,39 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
               type="submit" 
               fullWidth 
               className="mt-4"
-              icon={<ArrowRight size={20} />}
-              disabled={!name || !dob || !address || !paymentMethod}
+              icon={isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}
+              disabled={!name || !dob || !address || !paymentMethod || isSubmitting}
             >
-              Enviar Pedido
+              {isSubmitting ? 'Salvando...' : 'Finalizar no WhatsApp'}
             </Button>
           </form>
+        )}
+
+        {/* STEP 3: SUCCESS */}
+        {step === 3 && (
+            <div className="p-8 flex flex-col items-center justify-center h-full text-center animate-fade-in">
+                <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-6 relative">
+                    <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping" />
+                    <CheckCircle2 size={40} className="text-green-500 relative z-10" />
+                </div>
+                
+                <h2 className="text-2xl font-serif text-white mb-2">Pedido Enviado!</h2>
+                <p className="text-zinc-400 text-sm mb-6">
+                    Agradecemos a preferência. A confirmação do seu pedido e detalhes de entrega serão tratados diretamente no WhatsApp que abriu.
+                </p>
+
+                <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 w-full mb-8">
+                    <div className="flex items-center justify-center gap-2 text-amber-500 mb-1">
+                        <PartyPopper size={18} />
+                        <span className="font-bold text-sm uppercase">Tudo Certo</span>
+                    </div>
+                    <p className="text-xs text-zinc-500">Seu pedido já foi salvo em nosso sistema.</p>
+                </div>
+
+                <Button fullWidth onClick={onClose} variant="secondary">
+                    Voltar para o Cardápio
+                </Button>
+            </div>
         )}
       </div>
     </div>

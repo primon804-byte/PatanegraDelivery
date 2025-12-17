@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart, CalendarDays } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ShoppingBag, Truck, ShieldCheck, Trash2, ShoppingCart, CalendarDays, User } from 'lucide-react';
 import { PRODUCTS, HERO_IMAGES } from './constants';
-import { Product, CartItem, ViewState, ProductCategory } from './types';
+import { Product, CartItem, ViewState, ProductCategory, UserProfile } from './types';
 import { Button } from './components/Button';
 import { ProductCard } from './components/ProductCard';
 import { Calculator } from './components/Calculator';
@@ -13,6 +13,11 @@ import { FloatingCart } from './components/FloatingCart';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutFlow } from './components/CheckoutFlow';
 import { ContactModal } from './components/ContactModal';
+// New Imports
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { ProfileDrawer } from './components/ProfileDrawer';
+import { AdminDashboard } from './components/AdminDashboard';
 
 // --- Loading Component ---
 const LoadingScreen = () => (
@@ -31,15 +36,44 @@ const LoadingScreen = () => (
   </div>
 );
 
-// --- Extracted Components ---
+// --- User Button Component ---
+const UserButton = ({ onClick, user }: { onClick: () => void, user: UserProfile | null }) => {
+  return (
+    <button 
+      onClick={onClick}
+      className={`absolute top-6 right-6 z-50 w-10 h-10 backdrop-blur-md rounded-full flex items-center justify-center border transition-all duration-300 shadow-lg ${
+        user 
+          ? 'bg-amber-500 text-black border-amber-400 font-bold' 
+          : 'bg-black/40 text-white border-white/10 hover:bg-amber-500 hover:text-black hover:border-amber-500'
+      }`}
+    >
+      {user ? (
+        <span className="text-sm">
+          {user.full_name 
+            ? user.full_name.substring(0, 2).toUpperCase() 
+            : user.email.substring(0, 2).toUpperCase()}
+        </span>
+      ) : (
+        <User size={20} />
+      )}
+    </button>
+  );
+};
+
+// --- Extracted Components (Updated with UserButton) ---
 
 const HomeView: React.FC<{
   setView: (v: ViewState) => void;
   onOrderClick: () => void;
   onEventClick: () => void;
-}> = ({ setView, onOrderClick, onEventClick }) => (
+  onUserClick: () => void;
+  user: UserProfile | null;
+}> = ({ setView, onOrderClick, onEventClick, onUserClick, user }) => (
   <div className="animate-fade-in pb-32 relative bg-zinc-950">
       
+      {/* User Icon */}
+      <UserButton onClick={onUserClick} user={user} />
+
       {/* Logo Overlay - Fixed Image URL */}
       <div className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none">
          <div className="h-32 w-auto max-w-[80%] flex items-center justify-center drop-shadow-2xl">
@@ -112,12 +146,23 @@ const MenuView: React.FC<{
   recommendedVolume: number | null;
   activeCategory: ProductCategory;
   setActiveCategory: (c: ProductCategory) => void;
-}> = ({ products, addToCart, setSelectedProduct, recommendedVolume, activeCategory, setActiveCategory }) => {
-  // State lifted to App component
+  onUserClick: () => void;
+  user: UserProfile | null;
+}> = ({ products, addToCart, setSelectedProduct, recommendedVolume, activeCategory, setActiveCategory, onUserClick, user }) => {
   const filteredProducts = products.filter(p => p.category === activeCategory);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when category changes or when recommended volume is set (coming from calculator)
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeCategory, recommendedVolume]);
 
   return (
-    <div className="animate-fade-in pb-24 max-w-md mx-auto h-screen flex flex-col">
+    <div className="animate-fade-in pb-24 max-w-md mx-auto h-screen flex flex-col relative">
+      <UserButton onClick={onUserClick} user={user} />
+
       <div className="p-4 pb-2 pt-8">
         <div className="flex justify-between items-start">
           <div>
@@ -126,8 +171,8 @@ const MenuView: React.FC<{
         </div>
         
         {recommendedVolume && (
-            <p className="text-amber-500 text-sm mt-1">
-              Baseado no seu cálculo: ~{recommendedVolume} Litros
+            <p className="text-amber-500 text-sm mt-1 animate-pulse">
+              Recomendação para seu evento: ~{recommendedVolume} Litros
             </p>
         )}
       </div>
@@ -150,8 +195,7 @@ const MenuView: React.FC<{
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Padding bottom ensures content isn't hidden behind floating elements */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth">
         <div className="grid grid-cols-2 gap-4 pb-32">
           {filteredProducts.length > 0 ? (
             filteredProducts.map(product => (
@@ -159,8 +203,6 @@ const MenuView: React.FC<{
                 key={product.id} 
                 product={product} 
                 onAdd={(p) => {
-                  // LÓGICA ALTERADA: Se for Barril (30 ou 50), abre o modal para opcionais.
-                  // Se for Growler, adiciona direto para manter a agilidade.
                   if (p.category === ProductCategory.KEG30 || p.category === ProductCategory.KEG50) {
                     setSelectedProduct(p);
                   } else {
@@ -268,13 +310,21 @@ const CartView: React.FC<{
 
 // --- Main App Component ---
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewState>('home');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
+  
+  // Modals & Drawers
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  
+  // Auth & Admin Modals
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const products = PRODUCTS;
 
@@ -283,14 +333,11 @@ const App: React.FC = () => {
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // CRITICAL ASSET PRELOADING
   useEffect(() => {
     const loadAssets = async () => {
-      // List of critical images to wait for (Logo, Hero, Top products)
       const criticalImages = [
         'https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand',
         ...HERO_IMAGES,
-        // Preload first 2 products to avoid pop-in on menu
         ...products.slice(0, 2).map(p => p.image) 
       ];
 
@@ -299,15 +346,13 @@ const App: React.FC = () => {
           const img = new Image();
           img.src = src;
           img.onload = resolve;
-          img.onerror = resolve; // Continue even if error
+          img.onerror = resolve; 
         });
       });
 
-      // Wait for images to load OR 4 seconds max timeout
       const timeout = new Promise(resolve => setTimeout(resolve, 4000));
       await Promise.race([Promise.all(promises), timeout]);
 
-      // Trigger background load for rest of products
       products.slice(2).forEach(p => {
         const img = new Image();
         img.src = p.image;
@@ -319,30 +364,19 @@ const App: React.FC = () => {
     loadAssets();
   }, []);
 
-  // Update addToCart to handle options
   const addToCart = (product: Product, options?: Partial<CartItem>) => {
     setCart(prev => {
-      // If adding a product with special options (kegs), we might want to treat it as unique or just update the latest one.
-      // For simplicity in this flow, if options are provided, we find if there is an exact match or just update the ID match.
-      // Given the requirement is simple, let's just update the existing cart item or add new.
-      
       const existingIndex = prev.findIndex(item => item.id === product.id);
       
       if (existingIndex >= 0) {
-        // Product exists. 
-        // If options are provided, overwrite the options of the existing item (assuming user wants to update their selection)
-        // Or if simple add (+), just increment quantity.
         const existingItem = prev[existingIndex];
-        
         const updatedItem = {
            ...existingItem,
            quantity: existingItem.quantity + 1,
-           // Merge options if they are provided, otherwise keep existing
            rentTables: options?.rentTables ?? existingItem.rentTables,
            rentUmbrellas: options?.rentUmbrellas ?? existingItem.rentUmbrellas,
            cupsQuantity: options?.cupsQuantity ?? existingItem.cupsQuantity
         };
-        
         const newCart = [...prev];
         newCart[existingIndex] = updatedItem;
         return newCart;
@@ -362,6 +396,10 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(item => item.id !== productId));
   };
 
+  const clearCart = () => {
+    setCart([]);
+  };
+
   const updateQuantity = (productId: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.id === productId) {
@@ -372,14 +410,8 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleOrderClick = () => {
-    setView('menu');
-  };
-
-  const handleCheckoutClick = () => {
-    setIsCartOpen(false); 
-    setIsCheckoutOpen(true);
-  };
+  const handleOrderClick = () => setView('menu');
+  const handleCheckoutClick = () => { setIsCartOpen(false); setIsCheckoutOpen(true); };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -392,10 +424,8 @@ const App: React.FC = () => {
       setActiveCategory(ProductCategory.KEG50);
     }
     setView('menu');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Logic to handle Navigation changes
   const handleViewChange = (newView: ViewState) => {
     if (newView === 'contact') {
       setIsContactOpen(true);
@@ -404,10 +434,22 @@ const App: React.FC = () => {
     }
   };
 
-  // RENDER LOADING SCREEN IF ASSETS ARE NOT READY
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  // Handle User Icon Click
+  const handleUserClick = () => {
+    if (user) {
+      setIsProfileOpen(true);
+    } else {
+      setIsAuthOpen(true);
+    }
+  };
+
+  // Handle successful login to open drawer immediately
+  const handleLoginSuccess = () => {
+    setIsAuthOpen(false);
+    setIsProfileOpen(true);
+  };
+
+  if (loading || authLoading) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-500 selection:text-black animate-fade-in">
@@ -418,6 +460,8 @@ const App: React.FC = () => {
             setView={setView} 
             onOrderClick={handleOrderClick}
             onEventClick={() => setIsContactOpen(true)}
+            onUserClick={handleUserClick}
+            user={user}
           />
         )}
 
@@ -429,6 +473,8 @@ const App: React.FC = () => {
             recommendedVolume={recommendedVolume}
             activeCategory={activeCategory}
             setActiveCategory={setActiveCategory}
+            onUserClick={handleUserClick}
+            user={user}
           />
         )}
 
@@ -471,11 +517,33 @@ const App: React.FC = () => {
           onClose={() => setIsCheckoutOpen(false)}
           cart={cart}
           total={cartTotal}
+          onOrderComplete={clearCart}
         />
 
         <ContactModal 
           isOpen={isContactOpen}
           onClose={() => setIsContactOpen(false)}
+        />
+
+        {/* New Modals */}
+        <AuthModal 
+          isOpen={isAuthOpen} 
+          onClose={() => setIsAuthOpen(false)} 
+          onLoginSuccess={handleLoginSuccess}
+        />
+        
+        <ProfileDrawer 
+          isOpen={isProfileOpen} 
+          onClose={() => setIsProfileOpen(false)} 
+          onOpenAdmin={() => {
+            setIsProfileOpen(false);
+            setIsAdminOpen(true);
+          }}
+        />
+
+        <AdminDashboard 
+          isOpen={isAdminOpen} 
+          onClose={() => setIsAdminOpen(false)} 
         />
 
         {cart.length > 0 && view !== 'cart' && !isCartOpen && (
@@ -491,5 +559,11 @@ const App: React.FC = () => {
     </div>
   );
 };
+
+const App: React.FC = () => (
+  <AuthProvider>
+    <AppContent />
+  </AuthProvider>
+);
 
 export default App;
