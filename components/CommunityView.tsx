@@ -96,24 +96,27 @@ const FEATURED_POSTS: Post[] = [
 ];
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick, addToCart, currentCartTotal, onOpenCart }) => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Inicializamos com FEATURED_POSTS para garantir que algo apareça instantaneamente
+  const [posts, setPosts] = useState<Post[]>(FEATURED_POSTS);
+  const [loading, setLoading] = useState(false);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const touchStartX = useRef<number>(0);
   const [addingToCartState, setAddingToCartState] = useState(false);
 
-  useEffect(() => { fetchPosts(); }, []);
+  useEffect(() => { 
+    fetchPosts(); 
+  }, []);
 
   const fetchPosts = async () => {
-    setLoading(true);
     try {
+      // Tentamos buscar novos posts, mas o estado já começa com os em destaque
       const { data, error } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      setPosts(data ? [...FEATURED_POSTS, ...data] : FEATURED_POSTS);
+      if (!error && data && data.length > 0) {
+        setPosts([...FEATURED_POSTS, ...data]);
+      }
     } catch (err) { 
-      console.error(err);
-      setPosts(FEATURED_POSTS); 
-    } finally { setLoading(false); }
+      console.warn("Supabase fetch failed, staying with featured posts", err);
+    }
   };
 
   const handleNextStory = () => {
@@ -142,111 +145,105 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick,
   const activeStory = activeStoryIndex !== null ? STORIES[activeStoryIndex] : null;
 
   return (
-    <div className="animate-fade-in flex flex-col h-screen bg-zinc-950 max-w-md mx-auto relative overflow-hidden">
+    <div className="animate-fade-in flex flex-col h-[100dvh] bg-zinc-950 max-w-md mx-auto relative overflow-hidden">
       
-      {/* Story Viewer - Refatorado para preenchimento total */}
+      {/* Story Viewer - Centralizado e com largura máxima para evitar super zoom no PC */}
       {activeStory && (
-        <div 
-          className="fixed inset-0 z-[500] bg-black animate-fade-in overflow-hidden h-[100dvh]"
-          onTouchStart={(e) => touchStartX.current = e.touches[0].clientX}
-          onTouchEnd={(e) => {
-            const diff = touchStartX.current - e.changedTouches[0].clientX;
-            if (Math.abs(diff) > 40) diff > 0 ? handleNextStory() : handlePrevStory();
-          }}
-        >
-           {/* Imagem de Fundo em Camada Base - Ocupa TUDO sem gaps */}
-           <div className="absolute inset-0 bg-zinc-900 overflow-hidden">
-              <img 
-                key={activeStory.id} 
-                src={activeStory.content_img || activeStory.img} 
-                className="w-full h-full object-cover animate-scale-soft" 
-                alt="Story Content"
-              />
-              {/* Overlay suave para melhorar legibilidade das barras e botões */}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 pointer-events-none" />
-           </div>
+        <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-md flex items-center justify-center animate-fade-in">
+          <div 
+            className="relative w-full max-w-md h-full sm:h-[90vh] bg-black overflow-hidden sm:rounded-3xl shadow-2xl flex flex-col"
+            onTouchStart={(e) => touchStartX.current = e.touches[0].clientX}
+            onTouchEnd={(e) => {
+              const diff = touchStartX.current - e.changedTouches[0].clientX;
+              if (Math.abs(diff) > 40) diff > 0 ? handleNextStory() : handlePrevStory();
+            }}
+          >
+             {/* Imagem de Fundo em Camada Base - Ocupa TUDO dentro do max-w-md */}
+             <div className="absolute inset-0 bg-zinc-900 overflow-hidden">
+                <img 
+                  key={activeStory.id} 
+                  src={activeStory.content_img || activeStory.img} 
+                  className="w-full h-full object-cover animate-scale-soft" 
+                  alt="Story Content"
+                />
+                {/* Overlay suave para melhorar legibilidade das barras e botões */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80 pointer-events-none" />
+             </div>
 
-           {/* Progress Bars - Camada Superior */}
-           <div className="absolute top-0 left-0 right-0 h-1 flex gap-1 px-3 pt-6 z-[510]">
-              {STORIES.map((_, idx) => (
-                <div key={idx} className="h-[2px] flex-1 bg-white/20 rounded-full overflow-hidden">
-                   <div 
-                      className={`h-full bg-white transition-all duration-[5000ms] ease-linear origin-left ${idx === activeStoryIndex ? 'w-full' : idx < (activeStoryIndex || 0) ? 'w-full' : 'w-0'}`}
-                      onAnimationEnd={() => idx === activeStoryIndex && handleNextStory()}
-                   />
+             {/* Progress Bars - Camada Superior */}
+             <div className="absolute top-0 left-0 right-0 h-1 flex gap-1 px-3 pt-6 z-[510]">
+                {STORIES.map((_, idx) => (
+                  <div key={idx} className="h-[2px] flex-1 bg-white/20 rounded-full overflow-hidden">
+                     <div 
+                        className={`h-full bg-white transition-all duration-[5000ms] ease-linear origin-left ${idx === activeStoryIndex ? 'w-full' : idx < (activeStoryIndex || 0) ? 'w-full' : 'w-0'}`}
+                        onAnimationEnd={() => idx === activeStoryIndex && handleNextStory()}
+                     />
+                  </div>
+                ))}
+             </div>
+             
+             {/* Story Header - Camada Superior */}
+             <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 pt-10 z-[510]">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full p-[1.5px] bg-gradient-to-tr from-amber-600 to-amber-300">
+                    <img src={activeStory.img} className="w-full h-full rounded-full object-cover border border-black" />
+                  </div>
+                  <div>
+                    <span className="text-white text-[11px] font-bold block leading-tight">{activeStory.name}</span>
+                    <span className="text-white/60 text-[9px] font-medium tracking-wide">Patanegra Official</span>
+                  </div>
                 </div>
-              ))}
-           </div>
-           
-           {/* Story Header - Camada Superior */}
-           <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 pt-10 z-[510]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full p-[1.5px] bg-gradient-to-tr from-amber-600 to-amber-300">
-                  <img src={activeStory.img} className="w-full h-full rounded-full object-cover border border-black" />
-                </div>
-                <div>
-                  <span className="text-white text-[11px] font-bold block leading-tight">{activeStory.name}</span>
-                  <span className="text-white/60 text-[9px] font-medium tracking-wide">Patanegra Official</span>
-                </div>
-              </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setActiveStoryIndex(null); }} 
-                className="text-white/80 p-2 hover:text-white transition-colors bg-black/20 backdrop-blur-md rounded-full"
-              >
-                <X size={20}/>
-              </button>
-           </div>
-
-           {/* Click Areas (Invisible) para navegação por toque nas laterais */}
-           <div className="absolute inset-0 z-[505] flex">
-              <div className="w-1/3 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrevStory(); }} />
-              <div className="w-1/3 h-full cursor-pointer" /> {/* Área central livre */}
-              <div className="w-1/3 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNextStory(); }} />
-           </div>
-
-           {/* Setas Sutis Indicativas */}
-           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-[508] opacity-10 pointer-events-none hidden sm:block">
-              <ChevronLeft size={32} className="text-white stroke-[1.5px]" />
-           </div>
-           <div className="absolute right-2 top-1/2 -translate-y-1/2 z-[508] opacity-10 pointer-events-none hidden sm:block">
-              <ChevronRight size={32} className="text-white stroke-[1.5px]" />
-           </div>
-           
-           {/* Floating Cart (Lateral Direita) - Se houver itens */}
-           {currentCartTotal > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onOpenCart(); }}
-              className="absolute right-4 bottom-52 z-[515] animate-slide-left flex items-center gap-3 bg-zinc-900/60 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-3 shadow-2xl active:scale-95 transition-all"
-            >
-               <div className="flex flex-col items-end">
-                  <span className="text-[7px] text-zinc-400 uppercase font-black tracking-widest">Pedido</span>
-                  <span className="text-amber-500 font-bold text-sm leading-none">R$ {currentCartTotal.toFixed(2)}</span>
-               </div>
-               <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <ShoppingCart size={18} className="text-black" />
-               </div>
-            </button>
-           )}
-
-           {/* Bloco de Interação Bottom - Camada Superior */}
-           <div className="absolute bottom-0 left-0 right-0 p-6 pb-12 z-[510]">
-              <div className="flex items-center justify-between mb-6">
-                 <div className="flex gap-10">
-                    <button className="text-white/90 active:scale-125 transition-transform drop-shadow-lg"><Heart size={30} /></button>
-                    <button onClick={() => setActiveStoryIndex(null)} className="text-white/90 active:scale-125 transition-transform drop-shadow-lg"><X size={30} /></button>
-                 </div>
-                 <span className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em]">Patanegra Moments</span>
-              </div>
-
-              {activeStory.productId && (
                 <button 
-                  onClick={(e) => handleAddToCartFromStory(e, activeStory.productId)}
-                  className={`w-full h-16 rounded-2xl font-black text-xs uppercase tracking-[0.15em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-[0_20px_50px_rgba(0,0,0,0.6)] ${addingToCartState ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                  onClick={(e) => { e.stopPropagation(); setActiveStoryIndex(null); }} 
+                  className="text-white/80 p-2 hover:text-white transition-colors bg-black/20 backdrop-blur-md rounded-full"
                 >
-                  {addingToCartState ? (<><Plus size={20} /> Adicionado!</>) : (<>Comprar este Growler <ShoppingCart size={20} /></>)}
+                  <X size={20}/>
                 </button>
-              )}
-           </div>
+             </div>
+
+             {/* Click Areas (Invisible) para navegação por toque nas laterais */}
+             <div className="absolute inset-0 z-[505] flex">
+                <div className="w-1/3 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrevStory(); }} />
+                <div className="w-1/3 h-full cursor-pointer" /> 
+                <div className="w-1/3 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNextStory(); }} />
+             </div>
+
+             {/* Floating Cart (Lateral Direita) - Se houver itens */}
+             {currentCartTotal > 0 && (
+              <button 
+                onClick={(e) => { e.stopPropagation(); onOpenCart(); }}
+                className="absolute right-4 bottom-52 z-[515] animate-slide-left flex items-center gap-3 bg-zinc-900/60 backdrop-blur-xl border border-amber-500/40 rounded-2xl p-3 shadow-2xl active:scale-95 transition-all"
+              >
+                 <div className="flex flex-col items-end">
+                    <span className="text-[7px] text-zinc-400 uppercase font-black tracking-widest">Pedido</span>
+                    <span className="text-amber-500 font-bold text-sm leading-none">R$ {currentCartTotal.toFixed(2)}</span>
+                 </div>
+                 <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <ShoppingCart size={18} className="text-black" />
+                 </div>
+              </button>
+             )}
+
+             {/* Bloco de Interação Bottom - Camada Superior */}
+             <div className="absolute bottom-0 left-0 right-0 p-6 pb-12 z-[510]">
+                <div className="flex items-center justify-between mb-6">
+                   <div className="flex gap-10">
+                      <button className="text-white/90 active:scale-125 transition-transform drop-shadow-lg"><Heart size={30} /></button>
+                      <button onClick={() => setActiveStoryIndex(null)} className="text-white/90 active:scale-125 transition-transform drop-shadow-lg"><X size={30} /></button>
+                   </div>
+                   <span className="text-white/30 text-[9px] font-black uppercase tracking-[0.2em]">Patanegra Moments</span>
+                </div>
+
+                {activeStory.productId && (
+                  <button 
+                    onClick={(e) => handleAddToCartFromStory(e, activeStory.productId)}
+                    className={`w-full h-16 rounded-2xl font-black text-xs uppercase tracking-[0.15em] flex items-center justify-center gap-4 transition-all active:scale-95 shadow-[0_20px_50px_rgba(0,0,0,0.6)] ${addingToCartState ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                  >
+                    {addingToCartState ? (<><Plus size={20} /> Adicionado!</>) : (<>Comprar este Growler <ShoppingCart size={20} /></>)}
+                  </button>
+                )}
+             </div>
+          </div>
         </div>
       )}
 
@@ -276,7 +273,9 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick,
           ))}
         </div>
 
-        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-amber-500" size={32} /></div> : (
+        {loading && posts.length === 0 ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-amber-500" size={32} /></div>
+        ) : (
           <div className="space-y-0 pb-10">
             {posts.map(post => (
               <div key={post.id} className="bg-black border-b border-zinc-900/40">
