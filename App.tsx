@@ -61,8 +61,6 @@ const UserButton = ({ onClick, user }: { onClick: () => void, user: UserProfile 
   );
 };
 
-// --- Extracted Components (Updated with UserButton) ---
-
 const HomeView: React.FC<{
   setView: (v: ViewState) => void;
   onOrderClick: () => void;
@@ -71,11 +69,7 @@ const HomeView: React.FC<{
   user: UserProfile | null;
 }> = ({ setView, onOrderClick, onEventClick, onUserClick, user }) => (
   <div className="animate-fade-in pb-32 relative bg-zinc-950">
-      
-      {/* User Icon */}
       <UserButton onClick={onUserClick} user={user} />
-
-      {/* Logo Overlay - Fixed Image URL */}
       <div className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none">
          <div className="h-32 w-auto max-w-[80%] flex items-center justify-center drop-shadow-2xl">
             <img 
@@ -85,55 +79,25 @@ const HomeView: React.FC<{
             />
          </div>
       </div>
-
-      <HeroSlider 
-        onOrderClick={onOrderClick}
-        onCalcClick={() => setView('calculator')}
-      />
-
+      <HeroSlider onOrderClick={onOrderClick} onCalcClick={() => setView('calculator')} />
       <div className="px-6 py-10 bg-zinc-950 -mt-10 relative z-20 rounded-t-[2.5rem] border-t border-zinc-900 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
         <div className="w-12 h-1 bg-zinc-800 mx-auto rounded-full mb-8 opacity-50"></div>
-        
         <h2 className="text-3xl font-serif text-white mb-4 text-center">Por que Patanegra?</h2>
         <p className="text-zinc-400 text-center mb-10 text-lg leading-relaxed max-w-xs mx-auto">
           Transforme seu evento com o melhor chope da cidade. Rápido, gelado e sem complicações.
         </p>
-
         <div className="grid grid-cols-1 gap-6">
           <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
-             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500">
-               <Truck size={24} />
-             </div>
-             <div>
-               <h3 className="font-bold text-white">Entrega Expressa</h3>
-               <p className="text-sm text-zinc-400 mt-1">Seu chope chega na temperatura ideal e pronto para servir.</p>
-             </div>
+             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500"><Truck size={24} /></div>
+             <div><h3 className="font-bold text-white">Entrega Expressa</h3><p className="text-sm text-zinc-400 mt-1">Seu chope chega na temperatura ideal e pronto para servir.</p></div>
           </div>
-          
           <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800">
-             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500">
-               <ShieldCheck size={24} />
-             </div>
-             <div>
-               <h3 className="font-bold text-white">Qualidade Garantida</h3>
-               <p className="text-sm text-zinc-400 mt-1">Barris selecionados e equipamentos profissionais.</p>
-             </div>
+             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500"><ShieldCheck size={24} /></div>
+             <div><h3 className="font-bold text-white">Qualidade Garantida</h3><p className="text-sm text-zinc-400 mt-1">Barris selecionados e equipamentos profissionais.</p></div>
           </div>
-
-          <button 
-            onClick={onEventClick}
-            className="flex items-start text-left gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900 transition-all active:scale-[0.98]"
-          >
-             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500">
-               <CalendarDays size={24} />
-             </div>
-             <div>
-               <h3 className="font-bold text-white flex items-center gap-2">
-                 Contate para Eventos
-                 <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold uppercase">Novo</span>
-               </h3>
-               <p className="text-sm text-zinc-400 mt-1">Fale diretamente com nossa equipe via WhatsApp.</p>
-             </div>
+          <button onClick={onEventClick} className="flex items-start text-left gap-4 p-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-900 transition-all active:scale-[0.98]">
+             <div className="p-3 bg-zinc-800 rounded-lg text-amber-500"><CalendarDays size={24} /></div>
+             <div><h3 className="font-bold text-white flex items-center gap-2">Contate para Eventos <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded font-bold uppercase">Novo</span></h3><p className="text-sm text-zinc-400 mt-1">Fale diretamente com nossa equipe via WhatsApp.</p></div>
           </button>
         </div>
       </div>
@@ -152,174 +116,51 @@ const MenuView: React.FC<{
 }> = ({ products, addToCart, setSelectedProduct, recommendedVolume, activeCategory, setActiveCategory, onUserClick, user }) => {
   const filteredProducts = products.filter(p => p.category === activeCategory);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [activeCategory, recommendedVolume]);
-
+  useEffect(() => { if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' }); }, [activeCategory]);
   return (
     <div className="animate-fade-in pb-24 max-w-md mx-auto h-screen flex flex-col relative overflow-hidden">
       <UserButton onClick={onUserClick} user={user} />
-
       <div className="p-4 pb-2 pt-8 flex-shrink-0">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-3xl font-serif text-white">Nosso Catálogo</h2>
-          </div>
-        </div>
-        
-        {recommendedVolume && (
-            <p className="text-amber-500 text-sm mt-1 animate-pulse">
-              Recomendação para seu evento: ~{recommendedVolume} Litros
-            </p>
-        )}
+        <h2 className="text-3xl font-serif text-white">Nosso Catálogo</h2>
+        {recommendedVolume && <p className="text-amber-500 text-sm mt-1 animate-pulse">Recomendação para seu evento: ~{recommendedVolume} Litros</p>}
       </div>
-      
       <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md pt-2 pb-4 border-b border-zinc-900 flex-shrink-0">
         <div className="flex overflow-x-auto gap-2 px-4 scrollbar-hide">
           {Object.values(ProductCategory).map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
-                activeCategory === cat
-                  ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-              }`}
-            >
+            <button key={cat} onClick={() => setActiveCategory(cat)} className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${activeCategory === cat ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'}`}>
               {cat}
             </button>
           ))}
         </div>
       </div>
-
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth overscroll-contain">
         <div className="grid grid-cols-2 gap-4 pb-32">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map(product => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
-                onAdd={(p) => {
-                  if (p.category === ProductCategory.KEG30 || p.category === ProductCategory.KEG50) {
-                    setSelectedProduct(p);
-                  } else {
-                    addToCart(p);
-                  }
-                }}
-                onClick={setSelectedProduct}
-                featured={false}
-              />
-            ))
-          ) : (
-            <div className="col-span-2 text-center py-12 text-zinc-500">
-              <p>Nenhum produto nesta categoria.</p>
-            </div>
-          )}
+          {filteredProducts.map(product => <ProductCard key={product.id} product={product} onAdd={(p) => addToCart(p)} onClick={setSelectedProduct} />)}
         </div>
       </div>
     </div>
   );
 };
 
-const CartView: React.FC<{
-  cart: CartItem[];
-  cartTotal: number;
-  setView: (v: ViewState) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, d: number) => void;
-  onCheckout: () => void;
-}> = ({ cart, cartTotal, setView, removeFromCart, updateQuantity, onCheckout }) => (
-  <div className="animate-slide-up p-4 pt-8 pb-24 h-full flex flex-col max-w-md mx-auto min-h-screen">
-      <h2 className="text-3xl font-serif text-white mb-6">Seu Pedido</h2>
-      
-      {cart.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-center opacity-50">
-          <ShoppingBag size={64} className="mb-4 text-zinc-600" />
-          <p className="text-xl">Seu carrinho está vazio</p>
-          <Button variant="outline" className="mt-6" onClick={() => setView('menu')}>
-            Ver Produtos
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain">
-            {cart.map(item => (
-              <div key={item.id} className="flex flex-col gap-2 bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
-                <div className="flex items-center gap-4">
-                  <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover" />
-                  <div className="flex-1">
-                    <h4 className="font-bold text-white">{item.name}</h4>
-                    <div className="text-amber-500 font-semibold">R$ {item.price.toFixed(2)}</div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end gap-2">
-                     <button onClick={() => removeFromCart(item.id)} className="text-zinc-500 hover:text-red-500">
-                       <Trash2 size={16} />
-                     </button>
-                     <div className="flex items-center bg-zinc-800 rounded-lg">
-                        <button 
-                          onClick={() => updateQuantity(item.id, -1)}
-                          className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
-                        >-</button>
-                        <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, 1)}
-                          className="w-8 h-8 flex items-center justify-center text-zinc-300 hover:text-white"
-                        >+</button>
-                     </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex-shrink-0">
-            <div className="flex justify-between items-center mb-4 text-zinc-400">
-              <span>Subtotal</span>
-              <span>R$ {cartTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between items-center mb-6 text-white text-xl font-bold">
-              <span>Total</span>
-              <span className="text-amber-500">R$ {cartTotal.toFixed(2)}</span>
-            </div>
-            <Button fullWidth onClick={onCheckout} icon={<ShoppingBag size={20} />}>
-              Finalizar no WhatsApp
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
-);
-
 const AppContent: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewState>('home');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
-  
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'signup'>('login');
-  
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  
-  const products = PRODUCTS;
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recommendedVolume, setRecommendedVolume] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const loadAssets = async () => {
-      setLoading(false);
-    };
-    loadAssets();
+    const timer = setTimeout(() => setLoading(false), 1500); // Fail-safe p/ carregar em mobiles lentos
+    return () => clearTimeout(timer);
   }, []);
 
   const addToCart = (product: Product, options?: Partial<CartItem>) => {
@@ -334,37 +175,17 @@ const AppContent: React.FC = () => {
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
-  };
-
-  const updateQuantity = (productId: string, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === productId) {
-        return { ...item, quantity: Math.max(1, item.quantity + delta) };
-      }
-      return item;
-    }));
-  };
+  const removeFromCart = (productId: string) => setCart(prev => prev.filter(item => item.id !== productId));
+  const updateQuantity = (productId: string, delta: number) => setCart(prev => prev.map(item => item.id === productId ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item));
 
   const handleCheckoutClick = () => {
-    if (!user) {
-        setIsCartOpen(false);
-        setAuthInitialMode('login');
-        setIsAuthOpen(true);
-        return;
-    }
-    setIsCartOpen(false);
-    setIsCheckoutOpen(true);
+    if (!user) { setIsCartOpen(false); setAuthInitialMode('login'); setIsAuthOpen(true); return; }
+    setIsCartOpen(false); setIsCheckoutOpen(true);
   };
 
   const handleUserClick = () => {
-    if (user) {
-      setIsProfileOpen(true);
-    } else {
-      setAuthInitialMode('login');
-      setIsAuthOpen(true);
-    }
+    if (user) setIsProfileOpen(true);
+    else { setAuthInitialMode('login'); setIsAuthOpen(true); }
   };
 
   if (loading || authLoading) return <LoadingScreen />;
@@ -372,115 +193,27 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans animate-fade-in overflow-hidden">
       <main className="max-w-md mx-auto h-screen bg-zinc-950 shadow-2xl overflow-hidden relative flex flex-col">
-        
         <div className="flex-1 overflow-hidden relative">
-            {view === 'home' && (
-            <HomeView 
-                setView={setView} 
-                onOrderClick={() => setView('menu')}
-                onEventClick={() => setIsContactOpen(true)}
-                onUserClick={handleUserClick}
-                user={user}
-            />
-            )}
-
-            {view === 'menu' && (
-            <MenuView 
-                products={products} 
-                addToCart={addToCart} 
-                setSelectedProduct={setSelectedProduct}
-                recommendedVolume={recommendedVolume}
-                activeCategory={activeCategory}
-                setActiveCategory={setActiveCategory}
-                onUserClick={handleUserClick}
-                user={user}
-            />
-            )}
-
-            {view === 'community' && (
-            <CommunityView 
-                user={user} 
-                onUserClick={handleUserClick}
-            />
-            )}
-
-            {view === 'calculator' && (
-            <div className="h-full overflow-y-auto overscroll-contain">
-                <Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} />
-            </div>
-            )}
-
-            {view === 'cart' && (
-            <CartView 
-                cart={cart}
-                cartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
-                setView={setView}
-                removeFromCart={removeFromCart}
-                updateQuantity={updateQuantity}
-                onCheckout={handleCheckoutClick}
-            />
-            )}
+            {view === 'home' && <HomeView setView={setView} onOrderClick={() => setView('menu')} onEventClick={() => setIsContactOpen(true)} onUserClick={handleUserClick} user={user} />}
+            {view === 'menu' && <MenuView products={PRODUCTS} addToCart={addToCart} setSelectedProduct={setSelectedProduct} recommendedVolume={recommendedVolume} activeCategory={activeCategory} setActiveCategory={setActiveCategory} onUserClick={handleUserClick} user={user} />}
+            {view === 'community' && <CommunityView user={user} onUserClick={handleUserClick} addToCart={addToCart} currentCartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOpenCart={() => setIsCartOpen(true)} />}
+            {view === 'calculator' && <div className="h-full overflow-y-auto"><Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} /></div>}
+            {view === 'cart' && <div className="p-4 pt-8 text-white h-full overflow-y-auto"><h2 className="text-3xl font-serif mb-6">Seu Pedido</h2>{cart.length === 0 ? <p className="text-zinc-500">Vazio</p> : <div className="space-y-4">{cart.map(i => <div key={i.id} className="p-4 bg-zinc-900 rounded-xl flex justify-between"><span>{i.name}</span><span>R$ {i.price}</span></div>)}<Button fullWidth onClick={handleCheckoutClick}>Finalizar</Button></div>}</div>}
         </div>
         
-        <ProductDetail 
-          product={selectedProduct!} 
-          isOpen={!!selectedProduct} 
-          onClose={() => setSelectedProduct(null)}
-          onAdd={addToCart}
-        />
-
-        <CartDrawer 
-          isOpen={isCartOpen}
-          onClose={() => setIsCartOpen(false)}
-          cart={cart}
-          total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
-          onUpdateQuantity={updateQuantity}
-          onRemove={removeFromCart}
-          onCheckout={handleCheckoutClick}
-        />
-
-        <CheckoutFlow 
-          isOpen={isCheckoutOpen}
-          onClose={() => setIsCheckoutOpen(false)}
-          cart={cart}
-          total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
-          onOrderComplete={() => setCart([])}
-        />
-
-        <ContactModal 
-          isOpen={isContactOpen}
-          onClose={() => setIsContactOpen(false)}
-        />
-
-        <AuthModal 
-          isOpen={isAuthOpen} 
-          onClose={() => setIsAuthOpen(false)} 
-          onLoginSuccess={() => { setIsAuthOpen(false); setIsProfileOpen(true); }}
-          initialView={authInitialMode}
-        />
-        
-        <ProfileDrawer 
-          isOpen={isProfileOpen} 
-          onClose={() => setIsProfileOpen(false)} 
-          onOpenAdmin={() => { setIsProfileOpen(false); setIsAdminOpen(true); }}
-        />
-
+        <ProductDetail product={selectedProduct!} isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={addToCart} />
+        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onUpdateQuantity={updateQuantity} onRemove={removeFromCart} onCheckout={handleCheckoutClick} />
+        <CheckoutFlow isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOrderComplete={() => setCart([])} />
+        <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
+        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={() => { setIsAuthOpen(false); setIsProfileOpen(true); }} initialView={authInitialMode} />
+        <ProfileDrawer isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onOpenAdmin={() => { setIsProfileOpen(false); setIsAdminOpen(true); }} />
         <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
 
-        {cart.length > 0 && view !== 'cart' && !isCartOpen && (
-          <FloatingCart 
-            count={cart.reduce((acc, item) => acc + item.quantity, 0)} 
-            total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} 
-            onClick={() => setIsCartOpen(true)} 
-          />
+        {cart.length > 0 && view !== 'cart' && !isCartOpen && view !== 'community' && (
+          <FloatingCart count={cart.reduce((acc, item) => acc + item.quantity, 0)} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onClick={() => setIsCartOpen(true)} />
         )}
       </main>
-      
-      <Navigation 
-        currentView={view} 
-        onChangeView={setView} 
-        cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} 
-      />
+      <Navigation currentView={view} onChangeView={setView} cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} />
     </div>
   );
 };

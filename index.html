@@ -13,6 +13,9 @@
     <link rel="preload" as="image" href="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" fetchpriority="high">
     <link rel="preload" as="image" href="https://i.ibb.co/jZWpr3kK/IMG-9249-1.jpg" fetchpriority="high">
 
+    <!-- ES MODULE SHIMS FOR MOBILE COMPATIBILITY -->
+    <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <script>
@@ -57,8 +60,8 @@
         margin: 0;
       }
       
-      /* Splash Screen Styles - Critical CSS */
-      .splash-screen {
+      /* Splash Screen Styles */
+      #initial-splash {
         position: fixed;
         inset: 0;
         z-index: 9999;
@@ -67,6 +70,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        transition: opacity 0.5s ease-out;
       }
       
       .splash-logo-container {
@@ -144,24 +148,35 @@
 </script>
 </head>
   <body>
-    <div id="root">
-      <!-- STATIC LOADING SCREEN -->
-      <!-- This ensures immediate feedback while JS and Images load -->
-      <div class="splash-screen">
-         <div class="splash-logo-container">
-            <div class="splash-pulse"></div>
-            <div class="splash-circle">
-               <img 
-                 src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
-                 class="splash-img" 
-                 alt="Patanegra"
-               />
-            </div>
-         </div>
-         <div class="splash-text">Carregando</div>
-      </div>
+    <!-- Splash screen outside root to handle initial load feedback -->
+    <div id="initial-splash">
+       <div class="splash-logo-container">
+          <div class="splash-pulse"></div>
+          <div class="splash-circle">
+             <img 
+               src="https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand" 
+               class="splash-img" 
+               alt="Patanegra"
+             />
+          </div>
+       </div>
+       <div class="splash-text">Carregando</div>
     </div>
+
+    <div id="root"></div>
+
     <!-- Entry Point Script -->
     <script type="module" src="/index.tsx"></script>
+    
+    <script>
+      // Force remove splash screen after React mounts
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const splash = document.getElementById('initial-splash');
+          if (splash) splash.style.opacity = '0';
+          setTimeout(() => splash?.remove(), 500);
+        }, 1500);
+      });
+    </script>
   </body>
 </html>

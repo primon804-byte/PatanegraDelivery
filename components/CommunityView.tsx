@@ -1,215 +1,141 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, MessageCircle, Send, Plus, User, MapPin, Loader2, X, Instagram, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Post, UserProfile, Comment, Story } from '../types';
+import { Heart, Plus, User, MapPin, Loader2, X, Instagram, MoreHorizontal, ShoppingCart, MessageCircle, ChevronLeft, ChevronRight, Send, Bookmark } from 'lucide-react';
+import { Post, UserProfile, Comment, Story, Product } from '../types';
 import { Button } from './Button';
 import { supabase } from '../lib/supabase';
+import { PRODUCTS } from '../constants';
 
 interface CommunityViewProps {
   user: UserProfile | null;
   onUserClick: () => void;
+  addToCart: (product: Product) => void;
+  currentCartTotal: number;
+  onOpenCart: () => void;
 }
 
-const STORIES: Story[] = [
+interface ExtendedStory extends Story {
+  productId?: string;
+}
+
+const STORIES: ExtendedStory[] = [
   { 
     id: 2, 
     name: 'Patanegra', 
     img: 'https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand', 
     content_img: 'https://i.imgur.com/gZiNOEd_d.webp?maxwidth=760&fidelity=grand', 
-    active: true 
+    active: true,
+    productId: 'growler-pilsen-cristal-1l'
   },
   { 
     id: 3, 
-    name: 'Chopp Real', 
+    name: 'Hefe Weiss',
     img: 'https://i.imgur.com/ucynvQo_d.webp?maxwidth=1520&fidelity=grand', 
     content_img: 'https://i.imgur.com/ucynvQo_d.webp?maxwidth=1520&fidelity=grand', 
-    active: true 
+    active: true,
+    productId: 'growler-vinho-tinto-1l'
   },
   { 
     id: 4, 
     name: 'Qualidade', 
     img: 'https://i.imgur.com/oCMsckR_d.webp?maxwidth=1520&fidelity=grand', 
     content_img: 'https://i.imgur.com/oCMsckR_d.webp?maxwidth=1520&fidelity=grand', 
-    active: true 
+    active: true,
+    productId: 'growler-session-ipa-1l'
   },
   { 
     id: 5, 
     name: 'Noite VIP', 
     img: 'https://i.imgur.com/z56aU0d_d.webp?maxwidth=1520&fidelity=grand', 
     content_img: 'https://i.imgur.com/z56aU0d_d.webp?maxwidth=1520&fidelity=grand', 
-    active: true 
+    active: true,
+    productId: 'growler-session-ipa-1l'
   },
   { 
     id: 6, 
     name: 'Momentos', 
     img: 'https://i.imgur.com/SA2rL5d_d.webp?maxwidth=1520&fidelity=grand', 
     content_img: 'https://i.imgur.com/SA2rL5d_d.webp?maxwidth=1520&fidelity=grand', 
-    active: true 
+    active: true,
+    productId: 'growler-vinho-branco-1l'
   },
 ];
 
-export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick }) => {
+const FEATURED_POSTS: Post[] = [
+  {
+    id: 'featured-1',
+    user_id: 'patanegra-official',
+    user_name: 'Patanegra Delivery',
+    content_text: 'O melhor chope na porta da sua casa, gelado e pronto para servir! 🍺🚀 Peça agora pelo app e receba em minutos.',
+    content_image: 'https://i.imgur.com/5apEheA_d.webp?maxwidth=760&fidelity=grand',
+    likes: 0,
+    location: 'Marechal C. Rondon',
+    created_at: new Date().toISOString(),
+    is_liked: false
+  },
+  {
+    id: 'featured-2',
+    user_id: 'patanegra-store',
+    user_name: 'Loja Patanegra',
+    content_text: 'Estilo e paixão por cerveja. Confira nossa coleção exclusiva de camisas, canecas e bonés para os verdadeiros mestres cervejeiros! 👕Cap🍺',
+    content_image: 'https://i.imgur.com/mAEF2Ah_d.webp?maxwidth=1520&fidelity=grand',
+    likes: 0,
+    location: 'Official Store',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'featured-3',
+    user_id: 'patanegra-quality',
+    user_name: 'Patanegra Premium',
+    content_text: 'O melhor para o seu delivery: Qualidade garantida em cada barril. Patanegra é a escolha certa para tornar seu evento inesquecível. 🔝🔥',
+    content_image: 'https://i.imgur.com/35PIyrN_d.webp?maxwidth=760&fidelity=grand',
+    likes: 0,
+    location: 'Patanegra Matriz',
+    created_at: new Date().toISOString()
+  }
+];
+
+export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick, addToCart, currentCartTotal, onOpenCart }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [isPosting, setIsPosting] = useState(false);
-  const [newPostText, setNewPostText] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [activeCommentsPost, setActiveCommentsPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loadingComments, setLoadingComments] = useState(false);
-  const [newCommentText, setNewCommentText] = useState('');
-
-  // Story states
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const touchStartX = useRef<number>(0);
+  const [addingToCartState, setAddingToCartState] = useState(false);
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
+  useEffect(() => { fetchPosts(); }, []);
 
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const { data, error } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setPosts(data || []);
-    } catch (err) {
-      console.error("Erro ao carregar posts:", err);
-    } finally {
-      setLoading(false);
-    }
+      setPosts(data ? [...FEATURED_POSTS, ...data] : FEATURED_POSTS);
+    } catch (err) { 
+      console.error(err);
+      setPosts(FEATURED_POSTS); 
+    } finally { setLoading(false); }
   };
 
   const handleNextStory = () => {
     if (activeStoryIndex === null) return;
-    if (activeStoryIndex < STORIES.length - 1) {
-      setActiveStoryIndex(activeStoryIndex + 1);
-    } else {
-      setActiveStoryIndex(null); // Fecha ao chegar no fim
-    }
+    if (activeStoryIndex < STORIES.length - 1) setActiveStoryIndex(activeStoryIndex + 1);
+    else setActiveStoryIndex(null);
   };
 
   const handlePrevStory = () => {
     if (activeStoryIndex === null) return;
-    if (activeStoryIndex > 0) {
-      setActiveStoryIndex(activeStoryIndex - 1);
-    } else {
-      setActiveStoryIndex(null);
-    }
+    if (activeStoryIndex > 0) setActiveStoryIndex(activeStoryIndex - 1);
+    else setActiveStoryIndex(null);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX.current - touchEndX;
-
-    if (Math.abs(diff) > 50) { // Swipe detectado
-      if (diff > 0) {
-        handleNextStory();
-      } else {
-        handlePrevStory();
-      }
-    }
-  };
-
-  const handleLike = async (postId: string) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          is_liked: !p.is_liked,
-          likes: p.is_liked ? p.likes - 1 : p.likes + 1
-        };
-      }
-      return p;
-    }));
-  };
-
-  const handleSubmitPost = async () => {
-    if (!newPostText.trim()) return;
-    if (!user) {
-        onUserClick();
-        return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          user_name: user.full_name || user.email.split('@')[0],
-          content_text: newPostText,
-          likes: 0,
-          location: user.city || 'Patanegra Moments'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setPosts([data, ...posts]);
-      setNewPostText('');
-      setIsPosting(false);
-    } catch (err: any) {
-      alert("Erro ao postar: " + err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const openComments = async (post: Post) => {
-    setActiveCommentsPost(post);
-    setLoadingComments(true);
-    try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setComments(data || []);
-    } catch (err) {
-      setComments([]);
-    } finally {
-      setLoadingComments(false);
-    }
-  };
-
-  const handleAddComment = async () => {
-    if (!newCommentText.trim() || !activeCommentsPost || !user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('comments')
-        .insert({
-          post_id: activeCommentsPost.id,
-          user_id: user.id,
-          user_name: user.full_name || user.email.split('@')[0],
-          content_text: newCommentText
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setComments([...comments, data]);
-      setNewCommentText('');
-      
-      setPosts(prev => prev.map(p => 
-        p.id === activeCommentsPost.id ? { ...p, comments_count: (p.comments_count || 0) + 1 } : p
-      ));
-    } catch (err: any) {
-      alert("Erro ao comentar: " + err.message);
+  const handleAddToCartFromStory = (e: React.MouseEvent, productId?: string) => {
+    e.stopPropagation();
+    if (!productId) return;
+    const product = PRODUCTS.find(p => p.id === productId);
+    if (product) {
+      setAddingToCartState(true);
+      addToCart(product);
+      setTimeout(() => setAddingToCartState(false), 800);
     }
   };
 
@@ -218,17 +144,20 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick 
   return (
     <div className="animate-fade-in flex flex-col h-screen bg-zinc-950 max-w-md mx-auto relative overflow-hidden">
       
-      {/* Story Viewer - Immersive Layout with Navigation */}
+      {/* Story Viewer */}
       {activeStory && (
         <div 
-          className="fixed inset-0 z-[500] bg-black flex flex-col animate-fade-in"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          className="fixed inset-0 z-[500] bg-black flex flex-col animate-fade-in no-scrollbar"
+          onTouchStart={(e) => touchStartX.current = e.touches[0].clientX}
+          onTouchEnd={(e) => {
+            const diff = touchStartX.current - e.changedTouches[0].clientX;
+            if (Math.abs(diff) > 40) diff > 0 ? handleNextStory() : handlePrevStory();
+          }}
         >
-           {/* Progress Bars Container */}
+           {/* Progress Bars */}
            <div className="absolute top-0 left-0 right-0 h-1 flex gap-1 px-2 pt-4 z-[510]">
               {STORIES.map((_, idx) => (
-                <div key={idx} className="h-0.5 flex-1 bg-white/20 rounded-full overflow-hidden">
+                <div key={idx} className="h-0.5 flex-1 bg-white/10 rounded-full overflow-hidden">
                    <div 
                       className={`h-full bg-white transition-all duration-[5000ms] ease-linear origin-left ${idx === activeStoryIndex ? 'w-full' : idx < (activeStoryIndex || 0) ? 'w-full' : 'w-0'}`}
                       onAnimationEnd={() => idx === activeStoryIndex && handleNextStory()}
@@ -238,115 +167,154 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick 
            </div>
            
            {/* Story Header */}
-           <div className="flex items-center justify-between p-4 pt-8 z-[510] bg-gradient-to-b from-black/80 to-transparent">
+           <div className="flex items-center justify-between p-4 pt-8 z-[510] bg-gradient-to-b from-black/60 to-transparent">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-tr from-amber-600 to-amber-300">
-                  <img src={activeStory.img} className="w-full h-full rounded-full object-cover border-2 border-black" />
+                <div className="w-9 h-9 rounded-full p-[1px] bg-gradient-to-tr from-amber-600/50 to-amber-300/50">
+                  <img src={activeStory.img} className="w-full h-full rounded-full object-cover border border-black" />
                 </div>
                 <div>
-                  <span className="text-white text-sm font-bold block leading-tight">{activeStory.name}</span>
-                  <span className="text-white/60 text-[10px]">Patanegra Official</span>
+                  <span className="text-white text-xs font-bold block leading-tight">{activeStory.name}</span>
+                  <span className="text-white/40 text-[9px]">Patanegra Official</span>
                 </div>
               </div>
-              <button onClick={() => setActiveStoryIndex(null)} className="text-white p-2 hover:bg-white/10 rounded-full transition-colors">
-                <X size={24}/>
+              <button onClick={() => setActiveStoryIndex(null)} className="text-white/70 p-1 hover:text-white transition-colors">
+                <X size={20}/>
               </button>
            </div>
 
            {/* Story Content Area */}
            <div className="flex-1 flex items-center justify-center p-0 overflow-hidden relative">
-              {/* Invisible Click Targets for Next/Prev */}
-              <div className="absolute inset-0 z-[505] flex">
-                  <div className="w-1/3 h-full" onClick={(e) => { e.stopPropagation(); handlePrevStory(); }} />
-                  <div className="w-2/3 h-full" onClick={(e) => { e.stopPropagation(); handleNextStory(); }} />
+              <div className="absolute left-1 top-1/2 -translate-y-1/2 z-[512] opacity-25 pointer-events-none">
+                <ChevronLeft size={28} className="text-white stroke-[1px]" />
+              </div>
+              <div className="absolute right-1 top-1/2 -translate-y-1/2 z-[512] opacity-25 pointer-events-none">
+                <ChevronRight size={28} className="text-white stroke-[1px]" />
               </div>
 
-              <img 
-                key={activeStory.id}
-                src={activeStory.content_img || activeStory.img} 
-                className="w-full h-full object-cover sm:object-contain animate-scale-soft" 
-                alt={activeStory.name}
-              />
+              <div className="absolute inset-0 z-[505] flex">
+                  <div className="w-1/4 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handlePrevStory(); }} />
+                  <div className="w-3/4 h-full cursor-pointer" onClick={(e) => { e.stopPropagation(); handleNextStory(); }} />
+              </div>
+
+              <img key={activeStory.id} src={activeStory.content_img || activeStory.img} className="w-full h-full object-cover animate-scale-soft" />
               
-              {/* Interaction Overlay */}
-              <div className="absolute bottom-10 left-0 right-0 px-6 flex items-center gap-4 z-[510]">
-                  <div className="flex-1 bg-black/20 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 text-white/80 text-sm">
-                    Responder a {activeStory.name}...
+              {currentCartTotal > 0 && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onOpenCart(); }}
+                  className="absolute right-4 bottom-56 z-[515] animate-slide-left flex items-center gap-3 bg-zinc-900/50 backdrop-blur-xl border border-amber-500/30 rounded-2xl p-3 shadow-2xl active:scale-95 transition-all"
+                >
+                   <div className="flex flex-col items-end">
+                      <span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest">Seu Pedido</span>
+                      <span className="text-amber-500 font-bold text-sm leading-none">R$ {currentCartTotal.toFixed(2)}</span>
+                   </div>
+                   <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                      <ShoppingCart size={18} className="text-black" />
+                   </div>
+                </button>
+              )}
+
+              <div className="absolute bottom-12 left-0 right-0 px-6 py-6 z-[510] bg-gradient-to-t from-black/90 via-black/30 to-transparent">
+                  <div className="flex items-center justify-between mb-5 px-1">
+                     <div className="flex gap-10">
+                        <button className="text-white/80 active:scale-125 transition-transform"><Heart size={28} /></button>
+                        <button onClick={() => setActiveStoryIndex(null)} className="text-white/80 active:scale-125 transition-transform"><X size={28} /></button>
+                     </div>
+                     <span className="text-white/20 text-[8px] font-black uppercase tracking-widest">Patanegra Moments</span>
                   </div>
-                  <button className="text-white"><Heart size={24} /></button>
-                  <button className="text-white"><Send size={24} /></button>
+
+                  {activeStory.productId && (
+                    <button 
+                      onClick={(e) => handleAddToCartFromStory(e, activeStory.productId)}
+                      className={`w-full h-16 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-4 transition-all active:scale-95 shadow-[0_20px_50px_rgba(0,0,0,0.5)] ${addingToCartState ? 'bg-green-600 text-white' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+                    >
+                      {addingToCartState ? (<><Plus size={20} /> Adicionado!</>) : (<>Comprar este Growler <ShoppingCart size={20} /></>)}
+                    </button>
+                  )}
               </div>
            </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* Community Main Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-2">
            <Instagram size={20} className="text-amber-500" />
            <h1 className="text-xl font-serif text-amber-500 italic">Moments</h1>
         </div>
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsPosting(true)} className="text-zinc-400 hover:text-amber-500 transition-colors">
-            <Plus size={24} />
-          </button>
-          <button onClick={onUserClick} className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center">
+        <button onClick={onUserClick} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700">
              {user ? <span className="text-xs font-bold text-amber-500">{user.full_name?.substring(0,1).toUpperCase()}</span> : <User size={16} className="text-zinc-500" />}
-          </button>
-        </div>
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24 scrollbar-hide">
-        {/* Stories Horizontal List - Removed "Seu Story" */}
-        <div className="py-4 border-b border-zinc-900 overflow-x-auto flex gap-4 px-4 scrollbar-hide bg-zinc-950/50">
+      <div className="flex-1 overflow-y-auto pb-24 no-scrollbar">
+        {/* Stories Bar */}
+        <div className="py-4 border-b border-zinc-900 overflow-x-auto flex gap-4 px-4 no-scrollbar bg-zinc-950/50">
           {STORIES.map((story, index) => (
-            <button key={story.id} onClick={() => setActiveStoryIndex(index)} className="flex flex-col items-center gap-1.5 shrink-0 transition-transform active:scale-95">
-               <div className={`p-[2px] rounded-full ${story.active ? 'bg-gradient-to-tr from-amber-600 to-amber-300' : 'bg-zinc-800'}`}>
+            <button key={story.id} onClick={() => setActiveStoryIndex(index)} className="flex flex-col items-center gap-1.5 shrink-0 active:scale-90 transition-transform">
+               <div className="p-[2px] rounded-full bg-gradient-to-tr from-amber-600 to-amber-300">
                   <div className="w-16 h-16 rounded-full border-2 border-zinc-950 overflow-hidden">
                     <img src={story.img} className="w-full h-full object-cover" />
                   </div>
                </div>
-               <span className="text-[10px] text-zinc-400 font-medium truncate w-16 text-center">{story.name}</span>
+               <span className="text-[10px] text-zinc-500 font-bold truncate w-16">{story.name}</span>
             </button>
           ))}
         </div>
 
-        {/* Feed */}
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="animate-spin text-amber-500" size={32} /></div>
-        ) : (
-          <div className="space-y-6 py-4">
-            {posts.length === 0 ? (
-                <div className="text-center py-20 px-8">
-                    <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-700">
-                        <Instagram size={32} />
-                    </div>
-                    <p className="text-zinc-500 text-sm">Nenhum momento compartilhado ainda. Seja o primeiro!</p>
-                </div>
-            ) : posts.map(post => (
-              <div key={post.id} className="bg-zinc-950 border-b border-zinc-900/50 pb-4">
-                <div className="flex items-center justify-between px-4 mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-amber-500">{post.user_name.substring(0,1).toUpperCase()}</span>
+        {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-amber-500" size={32} /></div> : (
+          <div className="space-y-0 pb-10">
+            {posts.map(post => (
+              <div key={post.id} className="bg-black border-b border-zinc-900/40">
+                {/* 1. Header (User Info) */}
+                <div className="flex items-center justify-between px-3 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full p-[1.5px] bg-gradient-to-tr from-amber-600 to-amber-300">
+                        <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center text-white font-bold text-[10px] border border-black">
+                            {post.user_name ? post.user_name[0] : 'P'}
+                        </div>
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-white">{post.user_name}</h4>
-                      <span className="text-zinc-500 text-[9px] flex items-center gap-1"><MapPin size={8}/>{post.location}</span>
+                        <h4 className="text-xs font-bold text-white leading-tight">{post.user_name}</h4>
+                        {post.location && <span className="text-[9px] text-zinc-500 block">{post.location}</span>}
                     </div>
                   </div>
-                  <button className="text-zinc-600"><MoreHorizontal size={18}/></button>
+                  <button className="text-zinc-400 p-1"><MoreHorizontal size={18} /></button>
                 </div>
-                <div className="px-4 py-1 text-zinc-200 text-sm whitespace-pre-wrap leading-relaxed">{post.content_text}</div>
-                <div className="px-4 py-3 flex items-center gap-6">
-                  <button onClick={() => handleLike(post.id)} className={`transition-all active:scale-125 ${post.is_liked ? 'text-red-500' : 'text-zinc-400'}`}>
-                    <Heart size={22} fill={post.is_liked ? 'currentColor' : 'none'} />
-                  </button>
-                  <button onClick={() => openComments(post)} className="text-zinc-400 flex items-center gap-1">
-                    <MessageCircle size={22} />
-                    <span className="text-[10px] font-bold">{post.comments_count || 0}</span>
-                  </button>
-                  <button className="text-zinc-400 hover:text-amber-500 transition-colors"><Send size={22} /></button>
+
+                {/* 2. Image (Instagram Style: Photo on Top) */}
+                {post.content_image && (
+                  <div className="relative w-full aspect-square bg-zinc-900">
+                     <img 
+                        src={post.content_image} 
+                        className="w-full h-full object-cover" 
+                        alt="Post Content" 
+                        loading="lazy"
+                     />
+                  </div>
+                )}
+
+                {/* 3. Action Buttons */}
+                <div className="px-3 pt-3 flex items-center justify-between">
+                    <div className="flex gap-4">
+                        <button className="text-white hover:text-red-500 transition-colors"><Heart size={24} /></button>
+                        <button className="text-white"><MessageCircle size={24} /></button>
+                        <button className="text-white"><Send size={24} /></button>
+                    </div>
+                    <button className="text-white"><Bookmark size={24} /></button>
+                </div>
+
+                {/* 4. Description & Metadata (Instagram Style: Caption below actions) */}
+                <div className="px-3 py-3 space-y-1.5">
+                    <div className="text-xs font-bold text-white">0 curtidas</div>
+                    
+                    <div className="text-sm leading-snug">
+                        <span className="font-bold text-white mr-2">{post.user_name}</span>
+                        <span className="text-zinc-300">{post.content_text}</span>
+                    </div>
+                    
+                    <button className="text-zinc-500 text-xs block pt-1">Ver todos os 0 comentários</button>
+                    
+                    <div className="text-[9px] text-zinc-600 uppercase pt-1 tracking-tighter">Há 1 hora</div>
                 </div>
               </div>
             ))}
@@ -354,59 +322,15 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ user, onUserClick 
         )}
       </div>
 
-      {/* New Post Modal */}
-      {isPosting && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsPosting(false)} />
-           <div className="relative w-full max-w-sm bg-zinc-900 rounded-3xl border border-zinc-800 p-6 animate-slide-up shadow-2xl">
-              <h3 className="text-white font-serif text-lg mb-4">Novo Momento</h3>
-              <textarea 
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-4 text-white text-sm focus:border-amber-500 focus:outline-none min-h-[120px] resize-none mb-4"
-                placeholder="Compartilhe seu momento Patanegra..."
-                value={newPostText}
-                onChange={(e) => setNewPostText(e.target.value)}
-              />
-              <Button fullWidth onClick={handleSubmitPost} disabled={isSubmitting}>{isSubmitting ? 'Postando...' : 'Compartilhar'}</Button>
-           </div>
-        </div>
-      )}
-
-      {/* Comments Drawer */}
-      {activeCommentsPost && (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActiveCommentsPost(null)} />
-            <div className="relative w-full max-w-md bg-zinc-900 rounded-t-3xl h-[70vh] flex flex-col animate-slide-up shadow-2xl border-t border-zinc-800">
-                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-                    <span className="text-white font-bold text-sm">Comentários</span>
-                    <button onClick={() => setActiveCommentsPost(null)} className="text-zinc-500 p-1 hover:text-white transition-colors"><X size={20}/></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
-                    {loadingComments ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-amber-500"/></div> : 
-                    comments.length === 0 ? <div className="text-center text-zinc-500 text-sm mt-10">Seja o primeiro a comentar.</div> :
-                    comments.map(c => (
-                        <div key={c.id} className="flex gap-3 animate-fade-in">
-                            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-amber-500 shrink-0 border border-zinc-700">{c.user_name.substring(0,1).toUpperCase()}</div>
-                            <div className="flex-1 bg-zinc-800/40 p-3 rounded-2xl border border-zinc-800/50">
-                                <h5 className="text-white text-[10px] font-bold mb-1">{c.user_name}</h5>
-                                <p className="text-zinc-300 text-xs">{c.content_text}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <div className="p-4 border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-md flex gap-3 pb-safe">
-                    <input className="flex-1 bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500" placeholder="Escreva um comentário..." value={newCommentText} onChange={e => setNewCommentText(e.target.value)} />
-                    <button onClick={handleAddComment} className="w-10 h-10 bg-amber-500 text-black rounded-full flex items-center justify-center hover:bg-amber-400 transition-all active:scale-90"><Send size={18}/></button>
-                </div>
-            </div>
-        </div>
-      )}
-
       <style>{`
-        @keyframes progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
         @keyframes scale-soft { from { transform: scale(1.05); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .animate-scale-soft { animation: scale-soft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+        .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        
+        @keyframes slide-left { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .animate-slide-left { animation: slide-left 0.4s ease-out forwards; }
       `}</style>
     </div>
   );

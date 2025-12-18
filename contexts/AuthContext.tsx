@@ -20,7 +20,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfileAndSetUser = async (session: Session) => {
     try {
-        // Busca o perfil no banco com prioridade total
         const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -30,7 +29,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profile && !error) {
             setUser(profile as UserProfile);
         } else {
-            // Se o perfil não existe, cria um baseado nos metadados da sessão
             await createProfileInDb(session);
         }
     } catch (err) {
@@ -82,12 +80,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Safety timeout to prevent infinite loading if Supabase is slow
+    const safetyTimeout = setTimeout(() => {
+        if (loading) setLoading(false);
+    }, 5000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         fetchProfileAndSetUser(session);
       } else {
         setLoading(false);
       }
+      clearTimeout(safetyTimeout);
+    }).catch(() => {
+        setLoading(false);
+        clearTimeout(safetyTimeout);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -99,7 +106,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+        subscription.unsubscribe();
+        clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const signInWithGoogle = async () => {
