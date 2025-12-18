@@ -160,10 +160,10 @@ const MenuView: React.FC<{
   }, [activeCategory, recommendedVolume]);
 
   return (
-    <div className="animate-fade-in pb-24 max-w-md mx-auto h-screen flex flex-col relative">
+    <div className="animate-fade-in pb-24 max-w-md mx-auto h-screen flex flex-col relative overflow-hidden">
       <UserButton onClick={onUserClick} user={user} />
 
-      <div className="p-4 pb-2 pt-8">
+      <div className="p-4 pb-2 pt-8 flex-shrink-0">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-3xl font-serif text-white">Nosso Catálogo</h2>
@@ -177,13 +177,13 @@ const MenuView: React.FC<{
         )}
       </div>
       
-      <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md pt-2 pb-4 border-b border-zinc-900">
-        <div className="flex overflow-x-auto gap-2 px-4 snap-x">
+      <div className="sticky top-0 z-20 bg-zinc-950/95 backdrop-blur-md pt-2 pb-4 border-b border-zinc-900 flex-shrink-0">
+        <div className="flex overflow-x-auto gap-2 px-4 scrollbar-hide">
           {Object.values(ProductCategory).map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`snap-center flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+              className={`flex-shrink-0 px-5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
                 activeCategory === cat
                   ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105'
                   : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
@@ -195,7 +195,7 @@ const MenuView: React.FC<{
         </div>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 scroll-smooth overscroll-contain">
         <div className="grid grid-cols-2 gap-4 pb-32">
           {filteredProducts.length > 0 ? (
             filteredProducts.map(product => (
@@ -245,7 +245,7 @@ const CartView: React.FC<{
         </div>
       ) : (
         <>
-          <div className="flex-1 space-y-4 overflow-y-auto">
+          <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain">
             {cart.map(item => (
               <div key={item.id} className="flex flex-col gap-2 bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
                 <div className="flex items-center gap-4">
@@ -276,7 +276,7 @@ const CartView: React.FC<{
             ))}
           </div>
 
-          <div className="mt-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800">
+          <div className="mt-6 bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex-shrink-0">
             <div className="flex justify-between items-center mb-4 text-zinc-400">
               <span>Subtotal</span>
               <span>R$ {cartTotal.toFixed(2)}</span>
@@ -370,53 +370,57 @@ const AppContent: React.FC = () => {
   if (loading || authLoading) return <LoadingScreen />;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans animate-fade-in">
-      <main className="max-w-md mx-auto min-h-screen bg-zinc-950 shadow-2xl overflow-hidden relative">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans animate-fade-in overflow-hidden">
+      <main className="max-w-md mx-auto h-screen bg-zinc-950 shadow-2xl overflow-hidden relative flex flex-col">
         
-        {view === 'home' && (
-          <HomeView 
-            setView={setView} 
-            onOrderClick={() => setView('menu')}
-            onEventClick={() => setIsContactOpen(true)}
-            onUserClick={handleUserClick}
-            user={user}
-          />
-        )}
+        <div className="flex-1 overflow-hidden relative">
+            {view === 'home' && (
+            <HomeView 
+                setView={setView} 
+                onOrderClick={() => setView('menu')}
+                onEventClick={() => setIsContactOpen(true)}
+                onUserClick={handleUserClick}
+                user={user}
+            />
+            )}
 
-        {view === 'menu' && (
-          <MenuView 
-            products={products} 
-            addToCart={addToCart} 
-            setSelectedProduct={setSelectedProduct}
-            recommendedVolume={recommendedVolume}
-            activeCategory={activeCategory}
-            setActiveCategory={setActiveCategory}
-            onUserClick={handleUserClick}
-            user={user}
-          />
-        )}
+            {view === 'menu' && (
+            <MenuView 
+                products={products} 
+                addToCart={addToCart} 
+                setSelectedProduct={setSelectedProduct}
+                recommendedVolume={recommendedVolume}
+                activeCategory={activeCategory}
+                setActiveCategory={setActiveCategory}
+                onUserClick={handleUserClick}
+                user={user}
+            />
+            )}
 
-        {view === 'community' && (
-          <CommunityView 
-            user={user} 
-            onUserClick={handleUserClick}
-          />
-        )}
+            {view === 'community' && (
+            <CommunityView 
+                user={user} 
+                onUserClick={handleUserClick}
+            />
+            )}
 
-        {view === 'calculator' && (
-          <Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} />
-        )}
+            {view === 'calculator' && (
+            <div className="h-full overflow-y-auto overscroll-contain">
+                <Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} />
+            </div>
+            )}
 
-        {view === 'cart' && (
-          <CartView 
-            cart={cart}
-            cartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
-            setView={setView}
-            removeFromCart={removeFromCart}
-            updateQuantity={updateQuantity}
-            onCheckout={handleCheckoutClick}
-          />
-        )}
+            {view === 'cart' && (
+            <CartView 
+                cart={cart}
+                cartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
+                setView={setView}
+                removeFromCart={removeFromCart}
+                updateQuantity={updateQuantity}
+                onCheckout={handleCheckoutClick}
+            />
+            )}
+        </div>
         
         <ProductDetail 
           product={selectedProduct!} 
