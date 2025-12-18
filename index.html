@@ -71,7 +71,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        transition: opacity 0.5s ease-out;
+        transition: opacity 0.4s ease-out;
       }
       
       .splash-logo-container {
@@ -161,7 +161,7 @@
              />
           </div>
        </div>
-       <div class="splash-text">Carregando</div>
+       <div class="splash-text">Patanegra</div>
     </div>
 
     <div id="root"></div>
@@ -170,13 +170,15 @@
     <script type="module" src="/index.tsx"></script>
     
     <script>
-      // Force remove splash screen after React mounts
+      // Fallback remover for splash screen if React fails to mount/signal
       window.addEventListener('load', () => {
         setTimeout(() => {
           const splash = document.getElementById('initial-splash');
-          if (splash) splash.style.opacity = '0';
-          setTimeout(() => splash?.remove(), 500);
-        }, 1500);
+          if (splash && splash.style.opacity !== '0') {
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 400);
+          }
+        }, 1000); // Fail-safe fallback significantly reduced
       });
     </script>
   </body>

@@ -33,7 +33,7 @@ const LoadingScreen = () => (
           />
        </div>
     </div>
-    <div className="text-amber-500 font-serif text-sm tracking-[0.2em] uppercase animate-pulse">Carregando</div>
+    <div className="text-amber-500 font-serif text-sm tracking-[0.2em] uppercase animate-pulse">Iniciando</div>
   </div>
 );
 
@@ -159,7 +159,16 @@ const AppContent: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500); // Fail-safe p/ carregar em mobiles lentos
+    // Ultra-fast loader: removes splash once auth or a small timeout (400ms) is hit
+    const timer = setTimeout(() => {
+      setLoading(false);
+      // Coordinate with index.html splash screen
+      const htmlSplash = document.getElementById('initial-splash');
+      if (htmlSplash) {
+        htmlSplash.style.opacity = '0';
+        setTimeout(() => htmlSplash.remove(), 400);
+      }
+    }, 400); 
     return () => clearTimeout(timer);
   }, []);
 
