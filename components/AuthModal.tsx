@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Lock, Loader2, KeyRound, AlertCircle, CheckCircle2, RefreshCw, Terminal, User, Phone } from 'lucide-react';
+import { X, Mail, Lock, Loader2, KeyRound, AlertCircle, CheckCircle2, RefreshCw, User, Phone, FileText, MapPin, Upload, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Button } from './Button';
 
@@ -8,31 +8,44 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess?: () => void;
+  initialView?: 'login' | 'signup';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [isLogin, setIsLogin] = useState(true);
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, initialView = 'login' }) => {
+  const [isLogin, setIsLogin] = useState(initialView === 'login');
   
-  // Form Fields
+  // Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Signup Detailed State
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [rg, setRg] = useState('');
+  const [address, setAddress] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [city, setCity] = useState('');
+  
+  // File Upload States (Simulated for this demo)
+  const [addressProof, setAddressProof] = useState<File | null>(null);
+  const [cnh, setCnh] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showResend, setShowResend] = useState(false);
 
-  // Reset state when modal opens/closes
+  // Reset state when modal opens/closes or initialView changes
   useEffect(() => {
     if (isOpen) {
+      setIsLogin(initialView === 'login');
       setError('');
       setSuccessMsg('');
       setShowResend(false);
       setLoading(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialView]);
 
   if (!isOpen) return null;
 
@@ -95,7 +108,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     if (msg.includes('Invalid login')) {
         setError('Email ou senha incorretos.');
     } else if (msg.includes('Email not confirmed')) {
-        // Caso o usuário ainda não tenha desativado no painel, mostramos o erro
         setError('Email não confirmado.');
         setShowResend(true);
     } else if (msg.includes('rate limit')) {
@@ -108,29 +120,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
   };
 
   const performSignUp = async (emailStr: string, passStr: string) => {
-    // Validação básica
-    if (!isLogin && !emailStr.includes('admin')) {
-        if (fullName.length < 3) {
-            setError('Por favor, digite seu nome completo.');
+    const isAdmin = emailStr.includes('admin');
+
+    // Validação básica de campos obrigatórios no cadastro
+    if (!isLogin && !isAdmin) {
+        if (!fullName || !phone || !cpf || !rg || !address || !bairro || !city) {
+            setError('Por favor, preencha todos os campos obrigatórios.');
             setLoading(false);
             return;
         }
     }
 
+    // 1. Criar usuário na autenticação (Auth)
     const { data, error } = await supabase.auth.signUp({ 
         email: emailStr, 
         password: passStr,
         options: {
           data: {
-              full_name: emailStr.includes('admin') ? 'Administrador Patanegra' : fullName,
+              full_name: isAdmin ? 'Administrador Patanegra' : fullName,
               phone: phone, 
-              role: emailStr.includes('admin') ? 'admin' : 'user'
+              // Metadados extras para backup
+              cpf: cpf,
+              role: isAdmin ? 'admin' : 'user'
           }
         }
     });
 
     if (error) {
-        if (emailStr.includes('admin') && (error.message.includes('User already registered') || error.code === 'user_already_exists')) {
+        if (isAdmin && (error.message.includes('User already registered') || error.code === 'user_already_exists')) {
             const { error: loginError } = await supabase.auth.signInWithPassword({ 
                 email: emailStr, 
                 password: passStr 
@@ -143,12 +160,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         throw error;
     }
 
-    // Com "Confirm Email" desativado no Supabase, data.session virá preenchido.
+    // 2. FORÇAR A GRAVAÇÃO NA TABELA 'profiles'
+    if (data.user) {
+        const profileData = {
+            id: data.user.id,
+            email: emailStr,
+            full_name: isAdmin ? 'Administrador Patanegra' : fullName,
+            phone: phone,
+            role: isAdmin ? 'admin' : 'user',
+            cpf: cpf,
+            rg: rg,
+            address: address,
+            bairro: bairro,
+            city: city,
+            // Nota: Em produção real, você faria upload para o Storage e pegaria a URL pública.
+            // Aqui estamos salvando o nome do arquivo para referência.
+            address_proof_url: addressProof ? addressProof.name : null,
+            cnh_url: cnh ? cnh.name : null,
+        };
+
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(profileData);
+
+        if (profileError) {
+            console.error("Erro ao salvar perfil no banco:", profileError);
+            // Não bloqueia o fluxo, mas loga o erro. 
+            // O usuário foi criado no Auth, mas falhou no Profile.
+        }
+    }
+
     if (data.session) {
         finishAuth();
     } else if (data.user) {
-        // Se cair aqui, é porque a configuração "Confirm Email" AINDA ESTÁ ATIVADA no Supabase.
-        setSuccessMsg('Conta criada! Se o login não for automático, verifique se a confirmação de email está desativada no Supabase.');
+        setSuccessMsg('Conta criada! Se o login não for automático, verifique seu email.');
         setLoading(false);
     }
   };
@@ -187,36 +232,73 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-sm bg-zinc-950 rounded-3xl border border-zinc-800 shadow-2xl p-8 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-zinc-950 rounded-3xl border border-zinc-800 shadow-2xl p-6 md:p-8 animate-slide-up max-h-[90vh] overflow-y-auto">
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+          className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors z-20"
         >
           <X size={20} />
         </button>
 
         <div className="text-center mb-6">
           <h2 className="text-2xl font-serif text-white mb-2">
-            {isLogin ? 'Bem-vindo de volta' : 'Crie sua conta'}
+            {isLogin ? 'Bem-vindo de volta' : 'Cadastro Completo'}
           </h2>
           <p className="text-zinc-400 text-sm">
-            {email === 'admin' ? 'Acesso Administrativo Detectado' : (isLogin ? 'Acesse seus pedidos e agilize sua entrega.' : 'Preencha seus dados para começar.')}
+            {email === 'admin' ? 'Acesso Administrativo Detectado' : (isLogin ? 'Acesse sua conta para continuar.' : 'Precisamos de alguns dados para aprovar seu cadastro.')}
           </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           
-          {/* Campos Extras Apenas no Cadastro */}
+          {/* ==========================================================
+              LOGIN FIELDS (Simplified)
+             ========================================================== */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+                <label className="text-xs text-zinc-500 uppercase font-bold">Email</label>
+                <div className="relative">
+                <input 
+                    type="text" 
+                    required
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                />
+                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <label className="text-xs text-zinc-500 uppercase font-bold">Senha</label>
+                <div className="relative">
+                <input 
+                    type="password" 
+                    required
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
+                    placeholder="••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                />
+                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                </div>
+            </div>
+          </div>
+
+          {/* ==========================================================
+              SIGNUP EXTRA FIELDS
+             ========================================================== */}
           {!isLogin && (
-            <>
-                <div className="space-y-1 animate-fade-in">
+            <div className="space-y-4 pt-2 border-t border-zinc-900 animate-fade-in">
+                
+                <div className="space-y-1">
                     <label className="text-xs text-zinc-500 uppercase font-bold">Nome Completo</label>
                     <div className="relative">
                     <input 
                         type="text" 
-                        required
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
-                        placeholder="Seu nome"
+                        required={!isLogin}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none"
                         value={fullName}
                         onChange={e => setFullName(e.target.value)}
                     />
@@ -224,13 +306,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     </div>
                 </div>
 
-                <div className="space-y-1 animate-fade-in">
-                    <label className="text-xs text-zinc-500 uppercase font-bold">Telefone / WhatsApp</label>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">CPF</label>
+                        <div className="relative">
+                        <input 
+                            type="text" 
+                            required={!isLogin}
+                            placeholder="000.000.000-00"
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
+                            value={cpf}
+                            onChange={e => setCpf(e.target.value)}
+                        />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">RG</label>
+                        <div className="relative">
+                        <input 
+                            type="text" 
+                            required={!isLogin}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
+                            value={rg}
+                            onChange={e => setRg(e.target.value)}
+                        />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-xs text-zinc-500 uppercase font-bold">Celular / WhatsApp</label>
                     <div className="relative">
                     <input 
                         type="tel" 
-                        required
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
+                        required={!isLogin}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none"
                         placeholder="(00) 00000-0000"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
@@ -238,38 +348,81 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                     </div>
                 </div>
-            </>
+
+                <div className="space-y-1">
+                    <label className="text-xs text-zinc-500 uppercase font-bold">Endereço Residencial</label>
+                    <div className="relative">
+                    <input 
+                        type="text" 
+                        required={!isLogin}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="Rua, Número..."
+                        value={address}
+                        onChange={e => setAddress(e.target.value)}
+                    />
+                    <MapPin size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                     <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">Bairro</label>
+                        <input 
+                            type="text" 
+                            required={!isLogin}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
+                            value={bairro}
+                            onChange={e => setBairro(e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">Cidade</label>
+                        <input 
+                            type="text" 
+                            required={!isLogin}
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none"
+                            value={city}
+                            onChange={e => setCity(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {/* Upload Section - Simulated */}
+                <div className="space-y-3 pt-2">
+                    <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">Foto Comprovante de Endereço</label>
+                        <div className="relative border border-dashed border-zinc-700 bg-zinc-900/50 rounded-xl p-4 text-center hover:bg-zinc-900 hover:border-amber-500 transition-colors cursor-pointer">
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={(e) => setAddressProof(e.target.files?.[0] || null)}
+                            />
+                            <div className="flex flex-col items-center gap-1 text-zinc-400">
+                                <Upload size={20} className={addressProof ? 'text-green-500' : 'text-zinc-500'}/>
+                                <span className="text-xs">{addressProof ? addressProof.name : 'Toque para enviar foto'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs text-zinc-500 uppercase font-bold">Foto da CNH</label>
+                        <div className="relative border border-dashed border-zinc-700 bg-zinc-900/50 rounded-xl p-4 text-center hover:bg-zinc-900 hover:border-amber-500 transition-colors cursor-pointer">
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={(e) => setCnh(e.target.files?.[0] || null)}
+                            />
+                            <div className="flex flex-col items-center gap-1 text-zinc-400">
+                                <CreditCard size={20} className={cnh ? 'text-green-500' : 'text-zinc-500'}/>
+                                <span className="text-xs">{cnh ? cnh.name : 'Toque para enviar foto'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
           )}
-
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-bold">Email ou Usuário</label>
-            <div className="relative">
-              <input 
-                type="text" 
-                required
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
-                placeholder="Ex: admin ou seu@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
-              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-500 uppercase font-bold">Senha</label>
-            <div className="relative">
-              <input 
-                type="password" 
-                required
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none placeholder-zinc-600"
-                placeholder="••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-              />
-              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            </div>
-          </div>
 
           {email === 'admin' && (
             <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-500/20 animate-fade-in">
@@ -306,11 +459,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           )}
 
           <Button fullWidth type="submit" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Entrar' : 'Cadastrar e Entrar')}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Entrar' : 'Cadastrar')}
           </Button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center pb-safe">
           <button 
             onClick={() => {
                 setIsLogin(!isLogin);

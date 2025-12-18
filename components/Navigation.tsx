@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Beer, Calculator, ShoppingCart, MessageCircle } from 'lucide-react';
+import { Home, Beer, Calculator, ShoppingCart, Instagram } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface NavigationProps {
@@ -13,9 +13,9 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onChangeVie
   const navItems = [
     { id: 'home', icon: Home, label: 'Início' },
     { id: 'menu', icon: Beer, label: 'Produtos' },
+    { id: 'community', icon: Instagram, label: 'Moments' },
     { id: 'calculator', icon: Calculator, label: 'Calc' },
     { id: 'cart', icon: ShoppingCart, label: 'Pedido', badge: cartCount > 0 ? cartCount : null },
-    { id: 'contact', icon: MessageCircle, label: 'Contato' },
   ];
 
   return (

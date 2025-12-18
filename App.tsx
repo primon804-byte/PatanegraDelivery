@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { AdminDashboard } from './components/AdminDashboard';
+import { CommunityView } from './components/CommunityView';
 
 // --- Loading Component ---
 const LoadingScreen = () => (
@@ -152,7 +153,6 @@ const MenuView: React.FC<{
   const filteredProducts = products.filter(p => p.category === activeCategory);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when category changes or when recommended volume is set (coming from calculator)
   useEffect(() => {
     if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -272,17 +272,6 @@ const CartView: React.FC<{
                      </div>
                   </div>
                 </div>
-                {/* Extra info display */}
-                {(item.rentTables || item.rentUmbrellas || item.cupsQuantity) && (
-                   <div className="mt-2 pt-2 border-t border-zinc-800 text-xs text-zinc-400">
-                     <p className="font-bold text-amber-500 mb-1">Adicionais Solicitados:</p>
-                     <ul className="list-disc pl-4 space-y-0.5">
-                       {item.rentTables && <li>Orçamento de Mesas</li>}
-                       {item.rentUmbrellas && <li>Orçamento de Ombrelones</li>}
-                       {item.cupsQuantity && <li>{item.cupsQuantity} Copos descartáveis</li>}
-                     </ul>
-                   </div>
-                )}
               </div>
             ))}
           </div>
@@ -299,16 +288,11 @@ const CartView: React.FC<{
             <Button fullWidth onClick={onCheckout} icon={<ShoppingBag size={20} />}>
               Finalizar no WhatsApp
             </Button>
-            <p className="text-xs text-center text-zinc-500 mt-3">
-              Ao clicar, você será redirecionado para o WhatsApp para confirmar entrega e pagamento.
-            </p>
           </div>
         </>
       )}
     </div>
 );
-
-// --- Main App Component ---
 
 const AppContent: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -316,79 +300,37 @@ const AppContent: React.FC = () => {
   const [view, setView] = useState<ViewState>('home');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
   
-  // Modals & Drawers
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
   
-  // Auth & Admin Modals
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'signup'>('login');
+  
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   
   const products = PRODUCTS;
-
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recommendedVolume, setRecommendedVolume] = useState<number | null>(null);
-
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const loadAssets = async () => {
-      const criticalImages = [
-        'https://i.imgur.com/hm4KO4J_d.webp?maxwidth=760&fidelity=grand',
-        ...HERO_IMAGES,
-        ...products.slice(0, 2).map(p => p.image) 
-      ];
-
-      const promises = criticalImages.map(src => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.src = src;
-          img.onload = resolve;
-          img.onerror = resolve; 
-        });
-      });
-
-      const timeout = new Promise(resolve => setTimeout(resolve, 4000));
-      await Promise.race([Promise.all(promises), timeout]);
-
-      products.slice(2).forEach(p => {
-        const img = new Image();
-        img.src = p.image;
-      });
-
       setLoading(false);
     };
-
     loadAssets();
   }, []);
 
   const addToCart = (product: Product, options?: Partial<CartItem>) => {
     setCart(prev => {
       const existingIndex = prev.findIndex(item => item.id === product.id);
-      
       if (existingIndex >= 0) {
-        const existingItem = prev[existingIndex];
-        const updatedItem = {
-           ...existingItem,
-           quantity: existingItem.quantity + 1,
-           rentTables: options?.rentTables ?? existingItem.rentTables,
-           rentUmbrellas: options?.rentUmbrellas ?? existingItem.rentUmbrellas,
-           cupsQuantity: options?.cupsQuantity ?? existingItem.cupsQuantity
-        };
         const newCart = [...prev];
-        newCart[existingIndex] = updatedItem;
+        newCart[existingIndex].quantity += 1;
         return newCart;
       }
-      
-      return [...prev, { 
-        ...product, 
-        quantity: 1,
-        rentTables: options?.rentTables,
-        rentUmbrellas: options?.rentUmbrellas,
-        cupsQuantity: options?.cupsQuantity
-      }];
+      return [...prev, { ...product, quantity: 1, ...options }];
     });
   };
 
@@ -396,69 +338,45 @@ const AppContent: React.FC = () => {
     setCart(prev => prev.filter(item => item.id !== productId));
   };
 
-  const clearCart = () => {
-    setCart([]);
-  };
-
   const updateQuantity = (productId: string, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.id === productId) {
-        const newQty = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQty };
+        return { ...item, quantity: Math.max(1, item.quantity + delta) };
       }
       return item;
     }));
   };
 
-  const handleOrderClick = () => setView('menu');
-  const handleCheckoutClick = () => { setIsCartOpen(false); setIsCheckoutOpen(true); };
-
-  const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-  const handleCalculatorResult = (liters: number) => {
-    setRecommendedVolume(liters);
-    if (liters <= 30) {
-      setActiveCategory(ProductCategory.KEG30);
-    } else {
-      setActiveCategory(ProductCategory.KEG50);
+  const handleCheckoutClick = () => {
+    if (!user) {
+        setIsCartOpen(false);
+        setAuthInitialMode('login');
+        setIsAuthOpen(true);
+        return;
     }
-    setView('menu');
+    setIsCartOpen(false);
+    setIsCheckoutOpen(true);
   };
 
-  const handleViewChange = (newView: ViewState) => {
-    if (newView === 'contact') {
-      setIsContactOpen(true);
-    } else {
-      setView(newView);
-    }
-  };
-
-  // Handle User Icon Click
   const handleUserClick = () => {
     if (user) {
       setIsProfileOpen(true);
     } else {
+      setAuthInitialMode('login');
       setIsAuthOpen(true);
     }
-  };
-
-  // Handle successful login to open drawer immediately
-  const handleLoginSuccess = () => {
-    setIsAuthOpen(false);
-    setIsProfileOpen(true);
   };
 
   if (loading || authLoading) return <LoadingScreen />;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-500 selection:text-black animate-fade-in">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans animate-fade-in">
       <main className="max-w-md mx-auto min-h-screen bg-zinc-950 shadow-2xl overflow-hidden relative">
         
         {view === 'home' && (
           <HomeView 
             setView={setView} 
-            onOrderClick={handleOrderClick}
+            onOrderClick={() => setView('menu')}
             onEventClick={() => setIsContactOpen(true)}
             onUserClick={handleUserClick}
             user={user}
@@ -478,14 +396,21 @@ const AppContent: React.FC = () => {
           />
         )}
 
+        {view === 'community' && (
+          <CommunityView 
+            user={user} 
+            onUserClick={handleUserClick}
+          />
+        )}
+
         {view === 'calculator' && (
-          <Calculator onCalculate={handleCalculatorResult} />
+          <Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} />
         )}
 
         {view === 'cart' && (
           <CartView 
             cart={cart}
-            cartTotal={cartTotal}
+            cartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
             setView={setView}
             removeFromCart={removeFromCart}
             updateQuantity={updateQuantity}
@@ -493,20 +418,18 @@ const AppContent: React.FC = () => {
           />
         )}
         
-        {selectedProduct && (
-          <ProductDetail 
-            product={selectedProduct} 
-            isOpen={!!selectedProduct} 
-            onClose={() => setSelectedProduct(null)}
-            onAdd={addToCart}
-          />
-        )}
+        <ProductDetail 
+          product={selectedProduct!} 
+          isOpen={!!selectedProduct} 
+          onClose={() => setSelectedProduct(null)}
+          onAdd={addToCart}
+        />
 
         <CartDrawer 
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
           cart={cart}
-          total={cartTotal}
+          total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
           onUpdateQuantity={updateQuantity}
           onRemove={removeFromCart}
           onCheckout={handleCheckoutClick}
@@ -516,8 +439,8 @@ const AppContent: React.FC = () => {
           isOpen={isCheckoutOpen}
           onClose={() => setIsCheckoutOpen(false)}
           cart={cart}
-          total={cartTotal}
-          onOrderComplete={clearCart}
+          total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)}
+          onOrderComplete={() => setCart([])}
         />
 
         <ContactModal 
@@ -525,37 +448,35 @@ const AppContent: React.FC = () => {
           onClose={() => setIsContactOpen(false)}
         />
 
-        {/* New Modals */}
         <AuthModal 
           isOpen={isAuthOpen} 
           onClose={() => setIsAuthOpen(false)} 
-          onLoginSuccess={handleLoginSuccess}
+          onLoginSuccess={() => { setIsAuthOpen(false); setIsProfileOpen(true); }}
+          initialView={authInitialMode}
         />
         
         <ProfileDrawer 
           isOpen={isProfileOpen} 
           onClose={() => setIsProfileOpen(false)} 
-          onOpenAdmin={() => {
-            setIsProfileOpen(false);
-            setIsAdminOpen(true);
-          }}
+          onOpenAdmin={() => { setIsProfileOpen(false); setIsAdminOpen(true); }}
         />
 
-        <AdminDashboard 
-          isOpen={isAdminOpen} 
-          onClose={() => setIsAdminOpen(false)} 
-        />
+        <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
 
         {cart.length > 0 && view !== 'cart' && !isCartOpen && (
           <FloatingCart 
-            count={cartCount} 
-            total={cartTotal} 
+            count={cart.reduce((acc, item) => acc + item.quantity, 0)} 
+            total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} 
             onClick={() => setIsCartOpen(true)} 
           />
         )}
       </main>
       
-      <Navigation currentView={view} onChangeView={handleViewChange} cartCount={cartCount} />
+      <Navigation 
+        currentView={view} 
+        onChangeView={setView} 
+        cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)} 
+      />
     </div>
   );
 };

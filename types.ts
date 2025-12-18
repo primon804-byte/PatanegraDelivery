@@ -21,27 +21,26 @@ export interface Product {
   image: string;
   type?: BeerType;
   category: ProductCategory;
-  volumeLiters?: number; // e.g., 30, 50
+  volumeLiters?: number; 
   isPopular?: boolean;
-  abv?: number; // Alcohol by volume
-  ibu?: number; // Bitterness
-  pairing?: string; // Food pairing suggestions
+  abv?: number; 
+  ibu?: number; 
+  pairing?: string; 
 }
 
 export interface CartItem extends Product {
   quantity: number;
-  // Extra options for Event Kegs
   rentTables?: boolean;
   rentUmbrellas?: boolean;
-  cupsQuantity?: number | null; // 100 - 1000
+  cupsQuantity?: number | null; 
 }
 
 export interface CalculatorResult {
   totalLiters: number;
-  recommendedKegs: string[]; // IDs of products
+  recommendedKegs: string[]; 
 }
 
-export type ViewState = 'home' | 'menu' | 'calculator' | 'cart' | 'contact';
+export type ViewState = 'home' | 'menu' | 'calculator' | 'cart' | 'contact' | 'community';
 
 // --- Auth & Admin Types ---
 
@@ -52,13 +51,20 @@ export interface UserProfile {
   phone?: string;
   address?: string;
   role: 'user' | 'admin';
+  cpf?: string;
+  rg?: string;
+  bairro?: string;
+  city?: string;
+  address_proof_url?: string;
+  cnh_url?: string;
+  created_at?: string;
 }
 
 export interface OrderItem {
   id: string;
   order_id: string;
   product_name: string;
-  category: string; // Added category/class
+  category: string; 
   quantity: number;
   price: number;
   extras?: {
@@ -71,7 +77,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   user_id: string;
-  customer_name?: string; // Snapshot of name at time of order
+  customer_name?: string; 
   customer_phone?: string;
   total: number;
   status: string;
@@ -79,7 +85,12 @@ export interface Order {
   branch_location: string;
   delivery_address?: string;
   created_at: string;
-  order_items?: OrderItem[]; // For nested fetching
+  order_items?: OrderItem[]; 
+  event_address?: string;
+  event_date?: string;
+  event_time?: string;
+  voltage?: '110v' | '220v';
+  provide_info_later?: boolean;
 }
 
 export interface OrderHistoryItem {
@@ -88,4 +99,38 @@ export interface OrderHistoryItem {
   total: number;
   status: 'Entregue' | 'Em Andamento' | 'Cancelado';
   itemsSummary: string;
+}
+
+// --- Community Types ---
+
+export interface Comment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  user_name: string;
+  content_text: string;
+  created_at: string;
+}
+
+export interface Post {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_avatar?: string;
+  content_text: string;
+  content_image?: string;
+  likes: number;
+  location?: string;
+  created_at: string;
+  is_liked?: boolean;
+  comments_count?: number;
+}
+
+export interface Story {
+  id: number;
+  name: string;
+  img: string;
+  content_img?: string;
+  active?: boolean;
+  isMe?: boolean;
 }

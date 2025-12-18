@@ -57,18 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (profile && !error) {
             // Perfil existe, usa ele
-            setUser({
-                id: profile.id,
-                email: profile.email || session.user.email || '',
-                full_name: profile.full_name,
-                phone: profile.phone,
-                address: profile.address,
-                role: profile.role || 'user'
-            });
+            setUser(profile as UserProfile);
         } else {
             // 2. Perfil NÃO existe no banco (primeiro login ou erro no trigger)
             // Cria o perfil agora mesmo (Client-Side Creation)
-            console.log("Perfil não encontrado no banco. Criando agora...");
             await createProfileInDb(session);
         }
     } catch (err) {
@@ -85,22 +77,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const email = session.user.email || '';
     const isAdmin = email.toLowerCase().includes('admin') || email === 'admin@patanegra.com';
     
+    // Construct profile with all available metadata
+    // CRITICAL FIX: Mapping all extended fields from metadata to the DB object
     const newProfile = {
         id: session.user.id,
         email: email,
         full_name: metadata.full_name || '',
         phone: metadata.phone || '',
-        role: isAdmin ? 'admin' : 'user'
+        role: isAdmin ? 'admin' : 'user',
+        cpf: metadata.cpf || null,
+        rg: metadata.rg || null,
+        address: metadata.address || null,
+        bairro: metadata.bairro || null,
+        city: metadata.city || null,
+        address_proof_url: metadata.address_proof_url || null,
+        cnh_url: metadata.cnh_url || null
     };
 
-    // Insere no banco
-    const { error } = await supabase.from('profiles').insert(newProfile);
+    // Use Upsert to prevent Primary Key violations if a trigger already inserted partial data
+    const { data, error } = await supabase
+        .from('profiles')
+        .upsert(newProfile)
+        .select()
+        .single();
 
-    if (!error) {
+    if (!error && data) {
         // Se deu certo, define o usuário com esses dados
-        setUser(newProfile as UserProfile);
+        setUser(data as UserProfile);
     } else {
-        console.error("Falha ao criar perfil no banco:", error);
+        console.error("Falha ao criar perfil no banco (usando fallback):", error?.message);
         // Se falhar (ex: erro de permissão), usa o fallback da sessão
         mapSessionToUser(session);
     }
@@ -116,7 +121,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: email,
       full_name: metadata.full_name,
       phone: metadata.phone,
-      role: isAdmin ? 'admin' : 'user'
+      role: isAdmin ? 'admin' : 'user',
+      cpf: metadata.cpf,
+      rg: metadata.rg,
+      address: metadata.address,
+      bairro: metadata.bairro,
+      city: metadata.city,
+      address_proof_url: metadata.address_proof_url,
+      cnh_url: metadata.cnh_url
     });
   };
 
