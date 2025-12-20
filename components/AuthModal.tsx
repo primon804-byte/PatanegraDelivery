@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Lock, Loader2, KeyRound, AlertCircle, CheckCircle2, User, Phone, MapPin, Upload, CreditCard } from 'lucide-react';
+import { X, Mail, Lock, Loader2, KeyRound, AlertCircle, CheckCircle2, User, Phone, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Button } from './Button';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -12,9 +13,9 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, initialView = 'login' }) => {
+  const { loginAsAdminDemo } = useAuth();
   const [isLogin, setIsLogin] = useState(initialView === 'login');
   
-  // States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -27,13 +28,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setIsLogin(initialView === 'login');
       setError('');
-      setSuccessMsg('');
     }
   }, [isOpen, initialView]);
 
@@ -43,15 +42,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccessMsg('');
 
-    let finalEmail = email.trim();
-    let finalPassword = password.trim();
+    const finalEmail = email.trim();
+    const finalPassword = password.trim();
 
-    // LÓGICA DE ATALHO ADMIN
-    if (finalEmail.toLowerCase() === 'admin' && finalPassword.toLowerCase() === 'admin') {
-      finalEmail = 'admin@patanegra.com';
-      finalPassword = 'patanegra123';
+    // Atalho Admin Master (Demo Bypass)
+    if (isLogin && finalEmail.toLowerCase() === 'admin' && finalPassword.toLowerCase() === 'admin') {
+      loginAsAdminDemo();
+      setLoading(false);
+      onLoginSuccess ? onLoginSuccess() : onClose();
+      return;
     }
 
     try {
@@ -60,18 +60,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
           email: finalEmail, 
           password: finalPassword 
         });
-        
-        if (signInError) {
-          // Se for o admin e der erro, tenta cadastrar ele automaticamente
-          if (finalEmail === 'admin@patanegra.com') {
-             await performSignUp(finalEmail, finalPassword, true);
-             return;
-          }
-          throw signInError;
-        }
+        if (signInError) throw signInError;
       } else {
-        await performSignUp(finalEmail, finalPassword, false);
-        return;
+        const { data, error: signUpError } = await supabase.auth.signUp({ 
+            email: finalEmail, 
+            password: finalPassword,
+            options: {
+              data: {
+                  full_name: fullName,
+                  phone: phone,
+              }
+            }
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (data.user) {
+            const { error: profileError } = await supabase.from('profiles').upsert({
+                id: data.user.id,
+                email: finalEmail,
+                full_name: fullName,
+                phone: phone,
+                role: 'user',
+                cpf: cpf,
+                rg: rg,
+                address: address,
+                bairro: bairro,
+                city: city
+            });
+            if (profileError) console.error("Erro ao salvar perfil:", profileError);
+        }
       }
       
       onLoginSuccess ? onLoginSuccess() : onClose();
@@ -83,45 +101,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     }
   };
 
-  const performSignUp = async (emailStr: string, passStr: string, isAdmin: boolean) => {
-    const { data, error: signUpError } = await supabase.auth.signUp({ 
-        email: emailStr, 
-        password: passStr,
-        options: {
-          data: {
-              full_name: isAdmin ? 'Administrador Patanegra' : fullName,
-              phone: phone,
-              role: isAdmin ? 'admin' : 'user'
-          }
-        }
-    });
-
-    if (signUpError) throw signUpError;
-
-    if (data.user) {
-        // Garante a inserção manual no profile caso o trigger falhe ou não exista
-        await supabase.from('profiles').upsert({
-            id: data.user.id,
-            email: emailStr,
-            full_name: isAdmin ? 'Administrador Patanegra' : fullName,
-            phone: phone,
-            role: isAdmin ? 'admin' : 'user',
-            cpf: cpf,
-            rg: rg,
-            address: address,
-            bairro: bairro,
-            city: city
-        });
-    }
-
-    if (data.session) {
-        onLoginSuccess ? onLoginSuccess() : onClose();
-    } else {
-        setSuccessMsg('Conta criada! Verifique seu email para confirmar.');
-        setLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
@@ -130,58 +109,71 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         <button onClick={onClose} className="absolute top-4 right-4 text-zinc-500 hover:text-white"><X size={20} /></button>
 
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-serif text-white mb-2">{isLogin ? 'Bem-vindo' : 'Criar Conta'}</h2>
-          <p className="text-zinc-400 text-sm">{isLogin ? 'Acesse sua conta para continuar.' : 'Preencha seus dados para começar.'}</p>
+          <h2 className="text-2xl font-serif text-white mb-2">{isLogin ? 'Entrar' : 'Cadastro'}</h2>
+          <p className="text-zinc-400 text-[10px] uppercase font-black tracking-widest">Patanegra Premium Draft</p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
-                <label className="text-xs text-zinc-500 uppercase font-bold">Email ou Usuário</label>
-                <div className="relative">
-                  <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
-                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                </div>
+                <label className="text-[10px] text-zinc-500 uppercase font-black">Email ou Usuário</label>
+                <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
             </div>
 
             <div className="space-y-1">
-                <label className="text-xs text-zinc-500 uppercase font-bold">Senha</label>
-                <div className="relative">
-                  <input type="password" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 pl-10 text-white focus:border-amber-500 focus:outline-none" placeholder="••••••" value={password} onChange={e => setPassword(e.target.value)} />
-                  <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                </div>
+                <label className="text-[10px] text-zinc-500 uppercase font-black">Senha</label>
+                <input type="password" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" placeholder="••••••" value={password} onChange={e => setPassword(e.target.value)} />
             </div>
           </div>
 
           {!isLogin && (
-            <div className="space-y-4 pt-2 border-t border-zinc-900 animate-fade-in">
+            <div className="space-y-4 pt-4 border-t border-zinc-900 animate-fade-in">
                 <div className="space-y-1">
-                    <label className="text-xs text-zinc-500 uppercase font-bold">Nome Completo</label>
-                    <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none" value={fullName} onChange={e => setFullName(e.target.value)} />
+                    <label className="text-[10px] text-zinc-500 uppercase font-black">Nome Completo</label>
+                    <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={fullName} onChange={e => setFullName(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                        <label className="text-xs text-zinc-500 uppercase font-bold">CPF</label>
-                        <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none" value={cpf} onChange={e => setCpf(e.target.value)} />
+                        <label className="text-[10px] text-zinc-500 uppercase font-black">CPF</label>
+                        <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={cpf} onChange={e => setCpf(e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-xs text-zinc-500 uppercase font-bold">Celular</label>
-                        <input type="tel" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-amber-500 focus:outline-none" value={phone} onChange={e => setPhone(e.target.value)} />
+                        <label className="text-[10px] text-zinc-500 uppercase font-black">WhatsApp</label>
+                        <input type="tel" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={phone} onChange={e => setPhone(e.target.value)} />
                     </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 uppercase font-black">RG</label>
+                      <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={rg} onChange={e => setRg(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 uppercase font-black">Cidade</label>
+                      <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={city} onChange={e => setCity(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 uppercase font-black">Rua e Número</label>
+                      <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={address} onChange={e => setAddress(e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-500 uppercase font-black">Bairro</label>
+                      <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" value={bairro} onChange={e => setBairro(e.target.value)} />
+                  </div>
                 </div>
             </div>
           )}
 
-          {error && <div className="flex items-center gap-2 text-red-400 text-xs bg-red-500/10 p-3 rounded-lg border border-red-500/20"><AlertCircle size={16} /><span>{error}</span></div>}
-          {successMsg && <div className="flex items-center gap-2 text-green-400 text-xs bg-green-500/10 p-3 rounded-lg border border-green-500/20"><CheckCircle2 size={16} /><span>{successMsg}</span></div>}
+          {error && <div className="text-red-500 text-[10px] font-bold uppercase text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20">{error}</div>}
 
           <Button fullWidth type="submit" disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Entrar' : 'Cadastrar')}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Acessar' : 'Concluir Cadastro')}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
-          <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-zinc-400 hover:text-amber-500 transition-colors">
+          <button onClick={() => setIsLogin(!isLogin)} className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-amber-500 transition-colors">
             {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Entrar'}
           </button>
         </div>

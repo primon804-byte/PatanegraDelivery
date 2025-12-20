@@ -10,6 +10,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  refreshUser: () => Promise<void>;
+  loginAsAdminDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -29,39 +31,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profile && !error) {
             setUser(profile as UserProfile);
         } else {
-            await createProfileInDb(session);
+            mapSessionToUser(session);
         }
     } catch (err) {
-        console.error("Erro ao buscar perfil:", err);
         mapSessionToUser(session);
     } finally {
         setLoading(false);
     }
   };
 
-  const createProfileInDb = async (session: Session) => {
-    const metadata = session.user.user_metadata || {};
-    const email = session.user.email || '';
-    const isAdminUser = email.toLowerCase() === 'admin@patanegra.com' || metadata.role === 'admin';
-    
-    const newProfile = {
-        id: session.user.id,
-        email: email,
-        full_name: metadata.full_name || 'Usuário Patanegra',
-        phone: metadata.phone || '',
-        role: isAdminUser ? 'admin' : 'user'
-    };
-
-    const { data, error } = await supabase
-        .from('profiles')
-        .upsert(newProfile)
-        .select()
-        .single();
-
-    if (!error && data) {
-        setUser(data as UserProfile);
-    } else {
-        mapSessionToUser(session);
+  const refreshUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await fetchProfileAndSetUser(session);
     }
   };
 
@@ -73,43 +55,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser({
       id: session.user.id,
       email: email,
-      full_name: metadata.full_name,
-      phone: metadata.phone,
+      full_name: metadata.full_name || 'Usuário Patanegra',
+      phone: metadata.phone || '',
       role: isAdminUser ? 'admin' : 'user'
     });
   };
 
-  useEffect(() => {
-    // Safety timeout to prevent infinite loading if Supabase is slow
-    const safetyTimeout = setTimeout(() => {
-        if (loading) setLoading(false);
-    }, 5000);
+  const loginAsAdminDemo = () => {
+    setUser({
+      id: 'demo-admin-id',
+      email: 'admin@patanegra.com',
+      full_name: 'Administrador Demo',
+      phone: '(45) 99999-9999',
+      role: 'admin'
+    });
+    setLoading(false);
+  };
 
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        fetchProfileAndSetUser(session);
-      } else {
-        setLoading(false);
-      }
-      clearTimeout(safetyTimeout);
-    }).catch(() => {
-        setLoading(false);
-        clearTimeout(safetyTimeout);
+      if (session) fetchProfileAndSetUser(session);
+      else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        fetchProfileAndSetUser(session);
-      } else {
-        setUser(null);
+      if (session) fetchProfileAndSetUser(session);
+      else {
+        // Só limpa se não for o admin demo (que não tem sessão no supabase)
+        setUser(prev => prev?.id === 'demo-admin-id' ? prev : null);
         setLoading(false);
       }
     });
 
-    return () => {
-        subscription.unsubscribe();
-        clearTimeout(safetyTimeout);
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signInWithGoogle = async () => {
@@ -128,7 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       signInWithGoogle, 
       signOut, 
-      isAdmin: user?.role === 'admin' 
+      isAdmin: user?.role === 'admin' || user?.email === 'admin@patanegra.com',
+      refreshUser,
+      loginAsAdminDemo
     }}>
       {children}
     </AuthContext.Provider>

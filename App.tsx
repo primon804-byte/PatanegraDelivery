@@ -19,6 +19,8 @@ import { AuthModal } from './components/AuthModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { AdminDashboard } from './components/AdminDashboard';
 import { CommunityView } from './components/CommunityView';
+import { CollectionView } from './components/CollectionView';
+import { supabase } from './lib/supabase';
 
 // --- Loading Component ---
 const LoadingScreen = () => (
@@ -68,7 +70,7 @@ const HomeView: React.FC<{
   onUserClick: () => void;
   user: UserProfile | null;
 }> = ({ setView, onOrderClick, onEventClick, onUserClick, user }) => (
-  <div className="animate-fade-in pb-32 relative bg-zinc-950">
+  <div className="animate-fade-in pb-32 relative bg-zinc-950 h-full overflow-y-auto">
       <UserButton onClick={onUserClick} user={user} />
       <div className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none">
          <div className="h-32 w-auto max-w-[80%] flex items-center justify-center drop-shadow-2xl">
@@ -157,12 +159,21 @@ const AppContent: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recommendedVolume, setRecommendedVolume] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
+  // State para os Stickers Desbloqueados
+  const [unlockedStickers, setUnlockedStickers] = useState<string[]>([]);
 
   useEffect(() => {
-    // Ultra-fast loader: removes splash once auth or a small timeout (400ms) is hit
+    // Carrega stickers do localStorage e sincroniza com perfil se logado
+    const localStickers = JSON.parse(localStorage.getItem('patanegra_stickers') || '[]');
+    setUnlockedStickers(localStickers);
+
+    if (user && user.unlocked_stickers) {
+        setUnlockedStickers(prev => Array.from(new Set([...prev, ...(user.unlocked_stickers || [])])));
+    }
+
     const timer = setTimeout(() => {
       setLoading(false);
-      // Coordinate with index.html splash screen
       const htmlSplash = document.getElementById('initial-splash');
       if (htmlSplash) {
         htmlSplash.style.opacity = '0';
@@ -170,7 +181,17 @@ const AppContent: React.FC = () => {
       }
     }, 400); 
     return () => clearTimeout(timer);
-  }, []);
+  }, [user]);
+
+  const unlockStickers = async (productIds: string[]) => {
+    const newUnlocks = Array.from(new Set([...unlockedStickers, ...productIds]));
+    setUnlockedStickers(newUnlocks);
+    localStorage.setItem('patanegra_stickers', JSON.stringify(newUnlocks));
+
+    if (user) {
+        await supabase.from('profiles').update({ unlocked_stickers: newUnlocks }).eq('id', user.id);
+    }
+  };
 
   const addToCart = (product: Product, options?: Partial<CartItem>) => {
     setCart(prev => {
@@ -207,18 +228,19 @@ const AppContent: React.FC = () => {
             {view === 'menu' && <MenuView products={PRODUCTS} addToCart={addToCart} setSelectedProduct={setSelectedProduct} recommendedVolume={recommendedVolume} activeCategory={activeCategory} setActiveCategory={setActiveCategory} onUserClick={handleUserClick} user={user} />}
             {view === 'community' && <CommunityView user={user} onUserClick={handleUserClick} addToCart={addToCart} currentCartTotal={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOpenCart={() => setIsCartOpen(true)} />}
             {view === 'calculator' && <div className="h-full overflow-y-auto"><Calculator onCalculate={(l) => { setRecommendedVolume(l); setView('menu'); }} /></div>}
+            {view === 'collection' && <CollectionView unlockedIds={unlockedStickers} />}
             {view === 'cart' && <div className="p-4 pt-8 text-white h-full overflow-y-auto"><h2 className="text-3xl font-serif mb-6">Seu Pedido</h2>{cart.length === 0 ? <p className="text-zinc-500">Vazio</p> : <div className="space-y-4">{cart.map(i => <div key={i.id} className="p-4 bg-zinc-900 rounded-xl flex justify-between"><span>{i.name}</span><span>R$ {i.price}</span></div>)}<Button fullWidth onClick={handleCheckoutClick}>Finalizar</Button></div>}</div>}
         </div>
         
         <ProductDetail product={selectedProduct!} isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={addToCart} />
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onUpdateQuantity={updateQuantity} onRemove={removeFromCart} onCheckout={handleCheckoutClick} />
-        <CheckoutFlow isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOrderComplete={() => setCart([])} />
+        <CheckoutFlow isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOrderComplete={() => { unlockStickers(cart.map(i => i.id)); setCart([]); }} onGoToCollection={() => { setIsCheckoutOpen(false); setView('collection'); }} />
         <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
         <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={() => { setIsAuthOpen(false); setIsProfileOpen(true); }} initialView={authInitialMode} />
         <ProfileDrawer isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onOpenAdmin={() => { setIsProfileOpen(false); setIsAdminOpen(true); }} />
         <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
 
-        {cart.length > 0 && view !== 'cart' && !isCartOpen && view !== 'community' && (
+        {cart.length > 0 && view !== 'cart' && !isCartOpen && view !== 'community' && view !== 'collection' && (
           <FloatingCart count={cart.reduce((acc, item) => acc + item.quantity, 0)} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onClick={() => setIsCartOpen(true)} />
         )}
       </main>

@@ -19,6 +19,7 @@ export interface Product {
   description: string;
   price: number;
   image: string;
+  backImage?: string; // Imagem do brinde no verso
   type?: BeerType;
   category: ProductCategory;
   volumeLiters?: number; 
@@ -40,7 +41,7 @@ export interface CalculatorResult {
   recommendedKegs: string[]; 
 }
 
-export type ViewState = 'home' | 'menu' | 'calculator' | 'cart' | 'contact' | 'community';
+export type ViewState = 'home' | 'menu' | 'calculator' | 'cart' | 'contact' | 'community' | 'collection';
 
 // --- Auth & Admin Types ---
 
@@ -58,6 +59,7 @@ export interface UserProfile {
   address_proof_url?: string;
   cnh_url?: string;
   created_at?: string;
+  unlocked_stickers?: string[];
 }
 
 export interface OrderItem {
