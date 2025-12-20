@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, X, ChevronRight, User, Calendar, Map, CheckCircle2, ArrowRight, QrCode, CreditCard, Banknote, RefreshCw, Loader2, PartyPopper, Zap, Clock, AlertTriangle, Sparkles, Trophy, Move3d } from 'lucide-react';
+import { MapPin, X, ChevronRight, User, Calendar, Map, CheckCircle2, ArrowRight, QrCode, CreditCard, Banknote, RefreshCw, Loader2, PartyPopper, Zap, Clock, AlertTriangle, Sparkles, Trophy, Move3d, Tag, BellRing, Gift } from 'lucide-react';
 import { Button } from './Button';
 import { CartItem, ProductCategory, Product } from '../types';
 import { WHATSAPP_NUMBERS } from '../constants';
@@ -13,7 +13,7 @@ interface CheckoutFlowProps {
   onClose: () => void;
   cart: CartItem[];
   total: number;
-  onOrderComplete?: () => void;
+  onOrderComplete?: (discountUsedId?: number) => void;
   onGoToCollection?: () => void;
 }
 
@@ -31,6 +31,22 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [address, setAddress] = useState(''); 
   
+  // Sistema de Descontos (Apenas os resgatados e não usados)
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
+  const availableDiscounts = [
+    { id: 1, label: '10% OFF (Primeira Dose)', value: 0.1, missionId: 1 },
+    { id: 2, label: '15% OFF (Mestre dos Estilos)', value: 0.15, missionId: 2 },
+    { id: 3, label: '20% OFF (Resenha Épica)', value: 0.2, missionId: 3 },
+    { id: 4, label: '20% OFF (Dono da Festa)', value: 0.2, missionId: 4 },
+    { id: 5, label: '15% OFF (Cliente de Elite)', value: 0.15, missionId: 5 },
+  ].filter(d => user?.redeemed_missions?.includes(d.missionId) && !user?.used_discounts?.includes(d.missionId));
+
+  const appliedDiscountValue = selectedDiscountId 
+    ? (availableDiscounts.find(d => d.id === selectedDiscountId)?.value || 0) 
+    : 0;
+  
+  const finalTotal = total * (1 - appliedDiscountValue);
+
   const hasKegs = cart.some(item => item.category === ProductCategory.KEG30 || item.category === ProductCategory.KEG50);
   const [eventAddress, setEventAddress] = useState('');
   const [eventDate, setEventDate] = useState('');
@@ -72,7 +88,7 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
           user_id: user.id,
           customer_name: name,
           customer_phone: user.phone || 'N/A',
-          total: total,
+          total: finalTotal,
           status: 'Em Andamento',
           payment_method: paymentMethod,
           delivery_address: hasKegs && !provideLater ? eventAddress : address,
@@ -82,7 +98,8 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
           event_date: hasKegs ? eventDate : null,
           event_time: hasKegs ? eventTime : null,
           voltage: hasKegs ? voltage : null,
-          provide_info_later: provideLater
+          provide_info_later: provideLater,
+          discount_applied: appliedDiscountValue > 0 ? appliedDiscountValue * 100 : null
         })
         .select()
         .single();
@@ -104,6 +121,18 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
       }));
 
       await supabase.from('order_items').insert(itemsToInsert);
+
+      // Se usou desconto, marcar como usado no perfil
+      if (selectedDiscountId) {
+        const missionId = availableDiscounts.find(d => d.id === selectedDiscountId)?.missionId;
+        if (missionId) {
+          const currentUsed = user.used_discounts || [];
+          await supabase.from('profiles').update({ 
+            used_discounts: Array.from(new Set([...currentUsed, missionId])) 
+          }).eq('id', user.id);
+        }
+      }
+
       return orderData.id;
     } catch (error) {
       console.error('Erro ao salvar pedido:', error);
@@ -117,7 +146,6 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
     
     setIsSubmitting(true);
     
-    // Captura os growlers ANTES de limpar para a tela de prêmio
     const growlersInCart = cart.filter(i => i.category === ProductCategory.GROWLER);
     setUnlockedItems(growlersInCart);
     
@@ -127,14 +155,14 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
       ? WHATSAPP_NUMBERS.MARECHAL 
       : WHATSAPP_NUMBERS.FOZ;
 
-    const message = encodeURIComponent(`*Novo Pedido Patanegra*\nTotal: R$ ${total.toFixed(2)}\nUnidade: ${location}\nPagamento: ${paymentMethod}`);
+    const discountText = selectedDiscountId ? `\nDesconto Aplicado: -${appliedDiscountValue * 100}%` : '';
+    const message = encodeURIComponent(`*Novo Pedido Patanegra*\nTotal: R$ ${finalTotal.toFixed(2)}${discountText}\nUnidade: ${location}\nPagamento: ${paymentMethod}`);
     
     setStep(3);
     setIsSubmitting(false);
     
-    // Pequena pausa para garantir transição visual
     setTimeout(() => {
-        if (onOrderComplete) onOrderComplete();
+        if (onOrderComplete) onOrderComplete(selectedDiscountId || undefined);
         window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
     }, 200);
   };
@@ -194,6 +222,36 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
 
         {step === 2 && (
           <form onSubmit={handleFinalSubmit} className="p-8 pt-0 flex flex-col gap-5 overflow-y-auto scrollbar-hide">
+            
+            {/* Disponibilidade de Descontos Resgatados */}
+            {availableDiscounts.length > 0 && (
+              <div className="space-y-3 bg-amber-500/5 p-5 rounded-[2rem] border border-amber-500/20 relative overflow-hidden group animate-fade-in">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Gift size={40} className="text-amber-500" />
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={14} className="text-amber-500" />
+                  <span className="text-[10px] text-amber-500 font-black uppercase tracking-widest">Recompensas Disponíveis</span>
+                </div>
+                <div className="flex flex-col gap-2 relative z-10">
+                  {availableDiscounts.map(d => (
+                    <button 
+                      key={d.id} 
+                      type="button"
+                      onClick={() => setSelectedDiscountId(selectedDiscountId === d.id ? null : d.id)}
+                      className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedDiscountId === d.id ? 'bg-amber-500 text-black border-amber-400 shadow-lg shadow-amber-500/20' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Tag size={16} className={selectedDiscountId === d.id ? 'text-black' : 'text-amber-500'} />
+                        <span className="text-xs font-bold">{d.label}</span>
+                      </div>
+                      {selectedDiscountId === d.id ? <CheckCircle2 size={16} /> : <div className="w-4 h-4 rounded-full border border-zinc-700" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!hasKegs && (
                 <div className="space-y-2">
                     <label className="text-[10px] text-zinc-500 uppercase font-black tracking-widest px-1">Endereço de Entrega</label>
@@ -232,15 +290,36 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
                 </div>
             </div>
 
-            <Button type="submit" fullWidth className="h-16 rounded-2xl mt-4" disabled={!isValid() || isSubmitting}>
+            <div className="mt-4 p-5 bg-zinc-900 rounded-[2rem] border border-zinc-800">
+               <div className="flex justify-between items-center mb-1">
+                  <span className="text-zinc-500 text-[10px] uppercase font-black">Subtotal</span>
+                  <span className="text-white text-sm font-bold">R$ {total.toFixed(2)}</span>
+               </div>
+               {appliedDiscountValue > 0 && (
+                 <div className="flex justify-between items-center mb-1 text-green-500">
+                    <span className="text-[10px] uppercase font-black">Desconto Aplicado</span>
+                    <span className="text-sm font-bold">- R$ {(total * appliedDiscountValue).toFixed(2)}</span>
+                 </div>
+               )}
+               <div className="flex justify-between items-center mt-2 pt-2 border-t border-zinc-800">
+                  <span className="text-white text-xs uppercase font-black">Total Final</span>
+                  <span className="text-amber-500 text-xl font-bold font-serif">R$ {finalTotal.toFixed(2)}</span>
+               </div>
+            </div>
+
+            <Button type="submit" fullWidth className="h-16 rounded-2xl mt-4 shadow-xl shadow-amber-500/10" disabled={!isValid() || isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" size={24} /> : 'Confirmar Pedido'}
             </Button>
           </form>
         )}
 
         {step === 3 && (
-            <div className="p-10 flex flex-col items-center text-center animate-fade-in overflow-y-auto scrollbar-hide">
-                <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center mb-8 relative">
+            <div className="p-10 flex flex-col items-center text-center animate-fade-in overflow-y-auto scrollbar-hide relative">
+                <div className="absolute top-0 left-0 right-0 p-4 bg-amber-500 text-black flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.2em] animate-slide-down">
+                    <BellRing size={16} className="animate-bounce" /> Novo Pedido Recebido com Sucesso!
+                </div>
+
+                <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center mb-8 mt-12 relative">
                     <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping" />
                     <Trophy size={48} className="text-amber-500 relative z-10" />
                 </div>
@@ -294,6 +373,14 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({ isOpen, onClose, car
             onClose={() => setSelectedHologram(null)} 
           />
       )}
+
+      <style>{`
+        @keyframes slide-down {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+        .animate-slide-down { animation: slide-down 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      `}</style>
     </div>
   );
 };

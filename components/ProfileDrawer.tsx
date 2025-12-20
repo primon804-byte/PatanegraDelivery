@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, User, ShoppingBag, LogOut, ShieldCheck, MapPin, Phone, Loader2, Crown, Edit2, Save, CreditCard, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, User, ShoppingBag, LogOut, ShieldCheck, MapPin, Phone, Loader2, Crown, Edit2, Save, CreditCard, FileText, AlertTriangle, CheckCircle2, Award, Target, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
 import { OrderHistoryItem } from '../types';
@@ -100,7 +100,8 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose, o
            <button onClick={onClose} className="p-2 text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+          {/* User Info Card */}
           <div className="flex items-center gap-4 bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900">
             <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold border ${isAdmin ? 'bg-amber-500 border-amber-400 text-black' : 'bg-zinc-800 border-zinc-700 text-zinc-400'}`}>
               {user?.full_name ? user.full_name.substring(0,2).toUpperCase() : <User size={24} />}
@@ -118,6 +119,34 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose, o
             </button>
           </div>
 
+          {/* Missions Quick View */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+                <h4 className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em]">Conquistas Patanegra</h4>
+                <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[10px] uppercase">
+                    <Target size={12} /> 1/5 Ativas
+                </div>
+            </div>
+            <div className="bg-zinc-900/50 rounded-2xl p-5 border border-amber-500/20 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/5 blur-3xl rounded-full" />
+                <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                        <Award size={20} />
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-white text-xs font-bold">Mestre dos Estilos</span>
+                            <span className="text-amber-500 text-[9px] font-black uppercase">15% OFF</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-black rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 w-[20%] shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+
+          {/* Cadastro Data */}
           <div className="space-y-4">
             <h4 className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] px-1">Dados Cadastrais</h4>
             <div className="grid grid-cols-1 gap-3">
@@ -152,14 +181,14 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({ isOpen, onClose, o
                           <input className="w-full bg-zinc-950 p-3 rounded-xl border border-zinc-800 text-xs text-white focus:border-amber-500 outline-none" placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
                        </div>
                     </div>
-                  ) : <span className="block text-zinc-200 text-sm mt-1 font-medium">{user?.address || '-'}, {user?.bairro} • {user?.city}</span>}
+                  ) : <span className="block text-zinc-200 text-sm mt-1 font-medium leading-relaxed">{user?.address || '-'}, {user?.bairro} • {user?.city}</span>}
                </div>
             </div>
           </div>
 
           {isAdmin && (
             <div className="pt-2">
-              <Button fullWidth onClick={onOpenAdmin} variant="secondary" className="border border-amber-500/20 py-4">
+              <Button fullWidth onClick={onOpenAdmin} variant="secondary" className="border border-amber-500/20 py-4 shadow-xl">
                 <ShieldCheck size={18} className="mr-3 text-amber-500" /> PAINEL ADMINISTRATIVO
               </Button>
             </div>

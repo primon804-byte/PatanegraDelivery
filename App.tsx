@@ -13,7 +13,6 @@ import { FloatingCart } from './components/FloatingCart';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutFlow } from './components/CheckoutFlow';
 import { ContactModal } from './components/ContactModal';
-// New Imports
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
@@ -22,7 +21,6 @@ import { CommunityView } from './components/CommunityView';
 import { CollectionView } from './components/CollectionView';
 import { supabase } from './lib/supabase';
 
-// --- Loading Component ---
 const LoadingScreen = () => (
   <div className="fixed inset-0 z-[200] bg-zinc-950 flex flex-col items-center justify-center animate-fade-in">
     <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
@@ -39,7 +37,6 @@ const LoadingScreen = () => (
   </div>
 );
 
-// --- User Button Component ---
 const UserButton = ({ onClick, user }: { onClick: () => void, user: UserProfile | null }) => {
   return (
     <button 
@@ -145,7 +142,7 @@ const MenuView: React.FC<{
 };
 
 const AppContent: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewState>('home');
   const [activeCategory, setActiveCategory] = useState<ProductCategory>(ProductCategory.GROWLER);
@@ -159,12 +156,9 @@ const AppContent: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recommendedVolume, setRecommendedVolume] = useState<number | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
-  // State para os Stickers Desbloqueados
   const [unlockedStickers, setUnlockedStickers] = useState<string[]>([]);
 
   useEffect(() => {
-    // Carrega stickers do localStorage e sincroniza com perfil se logado
     const localStickers = JSON.parse(localStorage.getItem('patanegra_stickers') || '[]');
     setUnlockedStickers(localStickers);
 
@@ -183,14 +177,59 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [user]);
 
-  const unlockStickers = async (productIds: string[]) => {
-    const newUnlocks = Array.from(new Set([...unlockedStickers, ...productIds]));
+  const updateMissionProgression = async (newUnlocked: string[], itemsBought: CartItem[]) => {
+    if (!user) return;
+
+    // Buscar pedidos reais para contagem precisa (Missão 5)
+    const { count: orderCount } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    const currentCompleted = user.completed_missions || [];
+    const newlyCompleted: number[] = [...currentCompleted];
+
+    // Missão 1: Primeiro Delivery (Já desbloqueado se comprou algo ou já tem pedidos)
+    if (!newlyCompleted.includes(1)) newlyCompleted.push(1);
+
+    // Missão 2: 5 estilos diferentes de growlers
+    if (!newlyCompleted.includes(2) && newUnlocked.length >= 5) newlyCompleted.push(2);
+
+    // Missão 3: Compre 10 growlers em um pedido
+    const totalGrowlersInOrder = itemsBought
+        .filter(i => i.category === ProductCategory.GROWLER)
+        .reduce((acc, i) => acc + i.quantity, 0);
+    if (!newlyCompleted.includes(3) && totalGrowlersInOrder >= 10) newlyCompleted.push(3);
+
+    // Missão 4: Delivery de Barril
+    const hasKeg = itemsBought.some(i => i.category === ProductCategory.KEG30 || i.category === ProductCategory.KEG50);
+    if (!newlyCompleted.includes(4) && hasKeg) newlyCompleted.push(4);
+
+    // Missão 5: Conclua 3 pedidos
+    if (!newlyCompleted.includes(5) && (orderCount || 0) >= 3) newlyCompleted.push(5);
+
+    // Sincronizar com o banco se houver mudanças
+    if (newlyCompleted.length !== currentCompleted.length) {
+        await supabase.from('profiles').update({ 
+          completed_missions: newlyCompleted,
+          unlocked_stickers: newUnlocked
+        }).eq('id', user.id);
+        await refreshUser();
+    }
+  };
+
+  const handleOrderComplete = async () => {
+    const productIdsInCart = cart.map(i => i.id);
+    const newUnlocks = Array.from(new Set([...unlockedStickers, ...productIdsInCart]));
+    
     setUnlockedStickers(newUnlocks);
     localStorage.setItem('patanegra_stickers', JSON.stringify(newUnlocks));
 
     if (user) {
-        await supabase.from('profiles').update({ unlocked_stickers: newUnlocks }).eq('id', user.id);
+        await updateMissionProgression(newUnlocks, cart);
     }
+
+    setCart([]);
   };
 
   const addToCart = (product: Product, options?: Partial<CartItem>) => {
@@ -234,7 +273,14 @@ const AppContent: React.FC = () => {
         
         <ProductDetail product={selectedProduct!} isOpen={!!selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={addToCart} />
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onUpdateQuantity={updateQuantity} onRemove={removeFromCart} onCheckout={handleCheckoutClick} />
-        <CheckoutFlow isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} cart={cart} total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} onOrderComplete={() => { unlockStickers(cart.map(i => i.id)); setCart([]); }} onGoToCollection={() => { setIsCheckoutOpen(false); setView('collection'); }} />
+        <CheckoutFlow 
+          isOpen={isCheckoutOpen} 
+          onClose={() => setIsCheckoutOpen(false)} 
+          cart={cart} 
+          total={cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)} 
+          onOrderComplete={handleOrderComplete} 
+          onGoToCollection={() => { setIsCheckoutOpen(false); setView('collection'); }} 
+        />
         <ContactModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
         <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={() => { setIsAuthOpen(false); setIsProfileOpen(true); }} initialView={authInitialMode} />
         <ProfileDrawer isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} onOpenAdmin={() => { setIsProfileOpen(false); setIsAdminOpen(true); }} />

@@ -19,7 +19,7 @@ export interface Product {
   description: string;
   price: number;
   image: string;
-  backImage?: string; // Imagem do brinde no verso
+  backImage?: string; 
   type?: BeerType;
   category: ProductCategory;
   volumeLiters?: number; 
@@ -60,6 +60,9 @@ export interface UserProfile {
   cnh_url?: string;
   created_at?: string;
   unlocked_stickers?: string[];
+  completed_missions?: number[]; // IDs das missões concluídas
+  redeemed_missions?: number[]; // IDs das missões cujas recompensas foram resgatadas
+  used_discounts?: number[]; // IDs das missões cujos descontos já foram aplicados em pedidos
 }
 
 export interface OrderItem {
@@ -93,6 +96,7 @@ export interface Order {
   event_time?: string;
   voltage?: '110v' | '220v';
   provide_info_later?: boolean;
+  discount_applied?: number;
 }
 
 export interface OrderHistoryItem {

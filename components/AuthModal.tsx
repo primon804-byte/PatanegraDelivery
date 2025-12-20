@@ -13,7 +13,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess, initialView = 'login' }) => {
-  const { loginAsAdminDemo } = useAuth();
+  const { loginAsAdminDemo, refreshUser } = useAuth();
   const [isLogin, setIsLogin] = useState(initialView === 'login');
   
   const [email, setEmail] = useState('');
@@ -46,7 +46,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
     const finalEmail = email.trim();
     const finalPassword = password.trim();
 
-    // Atalho Admin Master (Demo Bypass)
     if (isLogin && finalEmail.toLowerCase() === 'admin' && finalPassword.toLowerCase() === 'admin') {
       loginAsAdminDemo();
       setLoading(false);
@@ -76,6 +75,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         if (signUpError) throw signUpError;
 
         if (data.user) {
+            // USAMOS UPSERT PARA GARANTIR O REGISTRO
             const { error: profileError } = await supabase.from('profiles').upsert({
                 id: data.user.id,
                 email: finalEmail,
@@ -86,15 +86,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                 rg: rg,
                 address: address,
                 bairro: bairro,
-                city: city
-            });
-            if (profileError) console.error("Erro ao salvar perfil:", profileError);
+                city: city,
+                unlocked_stickers: [],
+                completed_missions: [],
+                redeemed_missions: [],
+                used_discounts: []
+            }, { onConflict: 'id' });
+            
+            if (profileError) {
+              console.error("Erro ao salvar perfil:", profileError);
+              throw new Error("Erro ao criar perfil no banco de dados.");
+            }
         }
       }
       
+      await refreshUser();
       onLoginSuccess ? onLoginSuccess() : onClose();
       
     } catch (err: any) {
+      console.error("Erro Auth Completo:", err);
       setError(err.message === 'Invalid login credentials' ? 'Email ou senha incorretos.' : err.message);
     } finally {
       setLoading(false);
@@ -116,8 +126,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         <form onSubmit={handleAuth} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
-                <label className="text-[10px] text-zinc-500 uppercase font-black">Email ou Usuário</label>
-                <input type="text" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+                <label className="text-[10px] text-zinc-500 uppercase font-black">Email</label>
+                <input type="email" required className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white text-sm focus:border-amber-500 outline-none" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} />
             </div>
 
             <div className="space-y-1">
